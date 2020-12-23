@@ -16,10 +16,23 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
 )
 
-## System dependencies are found with CMake's conventions
+## System dependencies are found with CMake's conventionsg
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
+
+add_subdirectory(src/evaluate) # delete this later
+include_directories(src/evaluate)
+
+add_library(feature SHARED src/feature.cpp)
+add_library(bucket SHARED src/bucket.cpp)
+add_library(Utils SHARED src/utils.cpp)
+add_library(visualOdometry SHARED src/visualOdometry.cpp)
+
+target_link_libraries( bucket ${OpenCV_LIBS} )
+target_link_libraries( feature ${OpenCV_LIBS} bucket)
+target_link_libraries( Utils ${OpenCV_LIBS} evaluate_odometry feature)
+target_link_libraries( visualOdometry Utils bucket feature ${OpenCV_LIBS})
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -143,6 +156,7 @@ add_dependencies(stereo_vo_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXP
 target_link_libraries(stereo_vo_node
    ${catkin_LIBRARIES}
    ${OpenCV_LIBRARIES}
+   Utils bucket feature visualOdometry
 )
 
 ## Rename C++ executable without prefix

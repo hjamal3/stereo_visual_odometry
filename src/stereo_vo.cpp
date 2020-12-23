@@ -1,5 +1,6 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include <tf/transform_broadcaster.h>
 
 #include "opencv2/video/tracking.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -31,9 +32,7 @@ int main(int argc, char **argv)
 
     ros::NodeHandle n;
 
-    ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
-
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(20);
 
 
     #if USE_CUDA
@@ -82,16 +81,11 @@ int main(int argc, char **argv)
     cv::Mat imageRight_t0_color;  
     loadImageRight(imageRight_t0_color, imageRight_t0, init_frame_id, filepath);
     clock_t t_a, t_b;
+    clock_t t_1, t_2;
 
     int count = 0;
     while (ros::ok())
     {
-        std_msgs::String msg;
-        std::stringstream ss;
-        ss << "hello world " << count;
-        msg.data = ss.str();
-        ROS_INFO("%s", msg.data.c_str());
-        chatter_pub.publish(msg);
         ros::spinOnce();
 
         int frame_id = count;
@@ -107,6 +101,7 @@ int main(int argc, char **argv)
         loadImageRight(imageRight_t1_color, imageRight_t1, frame_id, filepath);   
 
         t_a = clock();
+        t_1 = clock();
         std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
         matchingFeatures( imageLeft_t0, imageRight_t0,
                           imageLeft_t1, imageRight_t1, 
@@ -115,6 +110,8 @@ int main(int argc, char **argv)
                           pointsRight_t0, 
                           pointsLeft_t1, 
                           pointsRight_t1);  
+        t_2 = clock();
+        float time_matching_features = 1000*(double)(t_2-t_1)/CLOCKS_PER_SEC;
 
         // set new images as old images
         imageLeft_t0 = imageLeft_t1;
@@ -130,11 +127,9 @@ int main(int argc, char **argv)
         // ---------------------
         // Tracking transfomation
         // ---------------------
-        clock_t tic_gpu = clock();
+        // PnP
         trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation, false);
-        clock_t toc_gpu = clock();
-        std::cerr << "tracking frame 2 frame: " << float(toc_gpu - tic_gpu)/CLOCKS_PER_SEC*1000 << "ms" << std::endl;
-        displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
+        //displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
 
         // ------------------------------------------------
         // Integrating and display
@@ -142,7 +137,6 @@ int main(int argc, char **argv)
 
         cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
         cv::Mat rigid_body_transformation;
-
         if(abs(rotation_euler[1])<0.1 && abs(rotation_euler[0])<0.1 && abs(rotation_euler[2])<0.1)
         {
             integrateOdometryStereo(frame_id, rigid_body_transformation, frame_pose, rotation, translation);
@@ -154,10 +148,40 @@ int main(int argc, char **argv)
         t_b = clock();
         float frame_time = 1000*(double)(t_b-t_a)/CLOCKS_PER_SEC;
         float fps = 1000/frame_time;
-        cout << "[Info] frame times (ms): " << frame_time << endl;
-        cout << "[Info] FPS: " << fps << endl;
+        //cout << "[Info] frame times (ms): " << frame_time << endl;
+        //cout << "[Info] FPS: " << fps << endl;
         cv::Mat xyz = frame_pose.col(3).clone();
+        cv::Mat R = frame_pose(cv::Rect(0,0,3,3));
+
         //display(frame_id, trajectory, xyz, pose_matrix_gt, fps, display_ground_truth);
+
+        // benchmark times
+        if (false)
+        {
+            cout << "time features " << time_matching_features << std::endl;
+            cout << "time total " << float(t_b - t_a)/CLOCKS_PER_SEC*1000 << std::endl;
+        }
+
+        // publish
+        if (true)
+        {
+            std::cout << xyz << std::endl;
+            static tf::TransformBroadcaster br;
+
+            tf::Transform transform;
+            transform.setOrigin( tf::Vector3(xyz.at<double>(0), xyz.at<double>(1), xyz.at<double>(2)) );
+            tf::Quaternion q;
+            tf::Matrix3x3 R_tf(R.at<double>(0,0),R.at<double>(0,1),R.at<double>(0,2),R.at<double>(1,0),
+                R.at<double>(1,1),R.at<double>(1,2),R.at<double>(2,0),R.at<double>(2,1),R.at<double>(2,2));
+            R_tf.getRotation(q);
+            transform.setRotation(q);
+            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "odom", "camera"));
+
+            transform.setOrigin(tf::Vector3(0.0, 0.0,0.0));
+            tf::Quaternion q2(0.5,-0.5,0.5,-0.5);
+            transform.setRotation(q2);
+            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
+        }
 
         loop_rate.sleep();
         ++count;
@@ -165,149 +189,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
-
-// int main(int argc, char **argv)
-// {
-
-//     #if USE_CUDA
-//         printf("CUDA Enabled\n");
-//     #endif
-//     // -----------------------------------------
-//     // Load images and calibration parameters
-//     // -----------------------------------------
-//     bool display_ground_truth = false;
-//     std::vector<Matrix> pose_matrix_gt;
-//     if(argc == 4)
-//     {   display_ground_truth = true;
-//         cerr << "Display ground truth trajectory" << endl;
-//         // load ground truth pose
-//         string filename_pose = string(argv[3]);
-//         pose_matrix_gt = loadPoses(filename_pose);
-
-//     }
-//     if(argc < 3)
-//     {
-//         cerr << "Usage: ./run path_to_sequence path_to_calibration [optional]path_to_ground_truth_pose" << endl;
-//         return 1;
-//     }
-
-//     // Sequence
-//     string filepath = string(argv[1]);
-//     cout << "Filepath: " << filepath << endl;
-
-//     // Camera calibration
-//     string strSettingPath = string(argv[2]);
-//     cout << "Calibration Filepath: " << strSettingPath << endl;
-
-//     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
-
-//     float fx = fSettings["Camera.fx"];
-//     float fy = fSettings["Camera.fy"];
-//     float cx = fSettings["Camera.cx"];
-//     float cy = fSettings["Camera.cy"];
-//     float bf = fSettings["Camera.bf"];
-
-//     cv::Mat projMatrl = (cv::Mat_<float>(3, 4) << fx, 0., cx, 0., 0., fy, cy, 0., 0,  0., 1., 0.);
-//     cv::Mat projMatrr = (cv::Mat_<float>(3, 4) << fx, 0., cx, bf, 0., fy, cy, 0., 0,  0., 1., 0.);
-//     cout << "K_left: " << endl << projMatrl << endl;
-//     cout << "K_right: " << endl << projMatrr << endl;
-
-//     // -----------------------------------------
-//     // Initialize variables
-//     // -----------------------------------------
-//     cv::Mat rotation = cv::Mat::eye(3, 3, CV_64F);
-//     cv::Mat translation = cv::Mat::zeros(3, 1, CV_64F);
-//     cv::Mat frame_pose = cv::Mat::eye(4, 4, CV_64F);
-
-//     std::cout << "frame_pose " << frame_pose << std::endl;
-//     cv::Mat trajectory = cv::Mat::zeros(600, 1200, CV_8UC3);
-//     FeatureSet currentVOFeatures;
-
-//     int init_frame_id = 0;
-
-//     // ------------------------
-//     // Load first images
-//     // ------------------------
-//     cv::Mat imageRight_t0,  imageLeft_t0;
-//     cv::Mat imageLeft_t0_color;
-//     loadImageLeft(imageLeft_t0_color,  imageLeft_t0, init_frame_id, filepath);
-//     cv::Mat imageRight_t0_color;  
-//     loadImageRight(imageRight_t0_color, imageRight_t0, init_frame_id, filepath);
-//     clock_t t_a, t_b;
-
-//     // -----------------------------------------
-//     // Run visual odometry
-//     // -----------------------------------------
-
-//     for (int frame_id = init_frame_id+1; frame_id < 9000; frame_id++)
-//     {
-
-//         std::cout << std::endl << "frame id " << frame_id << std::endl;
-//         // ------------
-//         // Load images
-//         // ------------
-//         cv::Mat imageRight_t1,  imageLeft_t1;
-
-//         cv::Mat imageLeft_t1_color;
-//         loadImageLeft(imageLeft_t1_color,  imageLeft_t1, frame_id, filepath);        
-//         cv::Mat imageRight_t1_color;  
-//         loadImageRight(imageRight_t1_color, imageRight_t1, frame_id, filepath);   
-
-//         t_a = clock();
-//         std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
-//         matchingFeatures( imageLeft_t0, imageRight_t0,
-//                           imageLeft_t1, imageRight_t1, 
-//                           currentVOFeatures,
-//                           pointsLeft_t0, 
-//                           pointsRight_t0, 
-//                           pointsLeft_t1, 
-//                           pointsRight_t1);  
-
-//         // set new images as old images
-//         imageLeft_t0 = imageLeft_t1;
-//         imageRight_t0 = imageRight_t1;
-
-//         // ---------------------
-//         // Triangulate 3D Points
-//         // ---------------------
-//         cv::Mat points3D_t0, points4D_t0;
-//         cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t0,  pointsRight_t0,  points4D_t0);
-//         cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
-
-//         // ---------------------
-//         // Tracking transfomation
-//         // ---------------------
-//         clock_t tic_gpu = clock();
-//         trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation, false);
-//         clock_t toc_gpu = clock();
-//         std::cerr << "tracking frame 2 frame: " << float(toc_gpu - tic_gpu)/CLOCKS_PER_SEC*1000 << "ms" << std::endl;
-//         displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
-
-//         // ------------------------------------------------
-//         // Integrating and display
-//         // ------------------------------------------------
-
-//         cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
-//         cv::Mat rigid_body_transformation;
-
-//         if(abs(rotation_euler[1])<0.1 && abs(rotation_euler[0])<0.1 && abs(rotation_euler[2])<0.1)
-//         {
-//             integrateOdometryStereo(frame_id, rigid_body_transformation, frame_pose, rotation, translation);
-
-//         } else {
-
-//             std::cout << "Too large rotation"  << std::endl;
-//         }
-//         t_b = clock();
-//         float frame_time = 1000*(double)(t_b-t_a)/CLOCKS_PER_SEC;
-//         float fps = 1000/frame_time;
-//         cout << "[Info] frame times (ms): " << frame_time << endl;
-//         cout << "[Info] FPS: " << fps << endl;
-
-//         cv::Mat xyz = frame_pose.col(3).clone();
-//         display(frame_id, trajectory, xyz, pose_matrix_gt, fps, display_ground_truth);
-//     }
-//     return 0;
-// }
-

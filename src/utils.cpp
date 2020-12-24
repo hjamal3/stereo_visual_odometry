@@ -1,5 +1,4 @@
-#include "utils.h"
-#include "evaluate_odometry.h"
+#include "stereo_visual_odometry/utils.h"
 
 // --------------------------------
 // Visualization

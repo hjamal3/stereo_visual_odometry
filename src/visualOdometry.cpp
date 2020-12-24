@@ -1,4 +1,4 @@
-#include "visualOdometry.h"
+#include "stereo_visual_odometry/visualOdometry.h"
 using namespace cv;
 
 cv::Mat euler2rot(cv::Mat& rotationMatrix, const cv::Mat & euler)

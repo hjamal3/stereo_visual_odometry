@@ -21,10 +21,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventionsg
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
-
-add_subdirectory(src/evaluate) # delete this later
-include_directories(src/evaluate)
+include_directories(
+  include
+  ${OpenCV_INCLUDE_DIRS}
+)
 
 add_library(feature SHARED src/feature.cpp)
 add_library(bucket SHARED src/bucket.cpp)
@@ -33,7 +33,7 @@ add_library(visualOdometry SHARED src/visualOdometry.cpp)
 
 target_link_libraries( bucket ${OpenCV_LIBS} )
 target_link_libraries( feature ${OpenCV_LIBS} bucket)
-target_link_libraries( Utils ${OpenCV_LIBS} evaluate_odometry feature)
+target_link_libraries( Utils ${OpenCV_LIBS} feature)
 target_link_libraries( visualOdometry Utils bucket feature ${OpenCV_LIBS})
 
 ## Uncomment this if the package has a setup.py. This macro ensures

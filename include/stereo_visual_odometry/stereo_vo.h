@@ -26,29 +26,43 @@
 #include "utils.h"
 #include "visualOdometry.h"
 
-cv::Mat imageRight_t0,  imageLeft_t0;
-cv::Mat imageRight_t1,  imageLeft_t1;
+class StereoVO
+{
+	public:
 
-// Camera calibration
-float fx = 721.5377;
-float fy = 721.5377;
-float cx = 609.5593;
-float cy = 172.854;
-float bf = -387.5744;
+		StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_);
 
-cv::Mat projMatrl = (cv::Mat_<float>(3, 4) << fx, 0., cx, 0., 0., fy, cy, 0., 0,  0., 1., 0.);
-cv::Mat projMatrr = (cv::Mat_<float>(3, 4) << fx, 0., cx, bf, 0., fy, cy, 0., 0,  0., 1., 0.);
-//std::cout << "K_left: " << endl << projMatrl << endl;
-//std::cout << "K_right: " << endl << projMatrr << endl;
+		cv::Mat rosImage2CvMat(sensor_msgs::ImageConstPtr img);
 
-// Initial variables
-cv::Mat rotation = cv::Mat::eye(3, 3, CV_64F);
-cv::Mat translation = cv::Mat::zeros(3, 1, CV_64F);
-cv::Mat frame_pose = cv::Mat::eye(4, 4, CV_64F);
+		// stereo pair callback
+		void stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right);
 
-// std::cout << "frame_pose " << frame_pose << std::endl;
-cv::Mat trajectory = cv::Mat::zeros(600, 1200, CV_8UC3);
-FeatureSet currentVOFeatures;
+		// runs the pipeline
+		void run();
 
-clock_t t_a, t_b;
-clock_t t_1, t_2;
+	private:
+
+		int frame_id = 0;
+
+		// projection matrices for camera
+		cv::Mat projMatrl, projMatrr;
+
+		// images of current and next time step
+		cv::Mat imageRight_t0,  imageLeft_t0;
+		cv::Mat imageRight_t1,  imageLeft_t1;
+
+		// initial pose variables
+		cv::Mat rotation = cv::Mat::eye(3, 3, CV_64F);
+		cv::Mat translation = cv::Mat::zeros(3, 1, CV_64F);
+		cv::Mat frame_pose = cv::Mat::eye(4, 4, CV_64F);
+
+		// std::cout << "frame_pose " << frame_pose << std::endl;
+		cv::Mat trajectory = cv::Mat::zeros(600, 1200, CV_8UC3);
+
+		// set of features currently tracked
+		FeatureSet currentVOFeatures;
+
+		// for timing code
+		clock_t t_a, t_b;
+		clock_t t_1, t_2;
+};

@@ -101,7 +101,7 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     // --------------------------------------------------------
     // Feature tracking using KLT tracker, bucketing and circular matching
     // --------------------------------------------------------
-    int bucket_size = imageLeft_t0.rows/10;
+    int bucket_size = imageLeft_t0.rows/20;
     int features_per_bucket = 1;
     bucketingFeatures(imageLeft_t0, currentVOFeatures, bucket_size, features_per_bucket);
 

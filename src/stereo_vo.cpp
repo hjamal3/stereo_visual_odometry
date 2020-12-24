@@ -6,7 +6,6 @@ StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
     projMatrr = projMatrr_;
 }
 
-
 cv::Mat StereoVO::rosImage2CvMat(sensor_msgs::ImageConstPtr img) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
@@ -134,18 +133,12 @@ int main(int argc, char **argv)
 
     ros::Rate loop_rate(20);
 
-    // ex ros param I might want to to use:
-    // ros::param::param<int>(nh_.resolveName("bucket_size"), ORB_patch_size, 15);
-    // ros::param::param<int>(nh_.resolveName("features_per_bucket"),
-    //                        features_per_bucket, 10);
-    //                         false);
-
     // Camera calibration
-    float fx = 721.5377;
-    float fy = 721.5377;
-    float cx = 609.5593;
-    float cy = 172.854;
-    float bf = -387.5744;
+    float fx = 665.95872;
+    float fy = 665.95872;
+    float cx = 275.01847;
+    float cy = 244.42522;
+    float bf = -50.70819;
 
     cv::Mat projMatrl = (cv::Mat_<float>(3, 4) << fx, 0., cx, 0., 0., fy, cy, 0., 0,  0., 1., 0.);
     cv::Mat projMatrr = (cv::Mat_<float>(3, 4) << fx, 0., cx, bf, 0., fy, cy, 0., 0,  0., 1., 0.);

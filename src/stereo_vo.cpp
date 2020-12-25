@@ -1,4 +1,5 @@
 #include "stereo_visual_odometry/stereo_vo.h"
+#include <stdexcept>
 
 StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
 {
@@ -133,28 +134,24 @@ int main(int argc, char **argv)
 
     ros::Rate loop_rate(20);
 
-    // Camera calibration
-    float fx = 665.95872;
-    float fy = 665.95872;
-    float cx = 275.01847;
-    float cy = 244.42522;
-    float bf = -50.70819;
-
-    std::string filename = "camera_calib.yaml"; //TODO correct the name
-    cv::FileStorage fs;
-    fs.open(filename, cv::FileStorage::READ);
-
-    if(fs.isOpened())
+    std::string filename; //TODO correct the name
+    if (!(n.getParam("calib_yaml",filename)))
     {
-        cv::FileNode nd = (fs["calibration_parameters"]);
-	fx = (float)nd["fx"];
-	fy = (float)nd["fy"];
-        cx = (float)nd["cx"];
-        cy = (float)nd["cy"];
-        bf = (float)nd["bf"];
+        std::cerr << "no calib yaml" << std::endl;
+        throw;
     }
-
-
+    cv::FileStorage fs(filename, cv::FileStorage::READ);
+    if(!(fs.isOpened()))
+    {
+        std::cerr << "cv failed to load yaml" << std::endl;
+        throw;
+    }
+    float fx, fy, cx, cy, bf;
+    fs["fx"] >> fx;
+    fs["fy"] >> fy;
+    fs["cx"] >> cx;
+    fs["cy"] >> cy;
+    fs["bf"] >> bf;
 
     cv::Mat projMatrl = (cv::Mat_<float>(3, 4) << fx, 0., cx, 0., 0., fy, cy, 0., 0,  0., 1., 0.);
     cv::Mat projMatrr = (cv::Mat_<float>(3, 4) << fx, 0., cx, bf, 0., fy, cy, 0., 0,  0., 1., 0.);

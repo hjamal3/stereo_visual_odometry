@@ -1,0 +1,10 @@
+<launch>
+<node pkg="stereo_visual_odometry" type="stereo_vo_node" name="stereo_vo_node"  output="screen" /> 
+<param name="calib_yaml" type="str" value="$(find stereo_visual_odometry)/calibration/powerranger.yaml"/>
+
+<!-- could also use ros params to load values directly like... 
+<rosparam file="$(find my_custom_package)/config/my_params.yaml" /> 
+but for now want to keep the values contained
+-->
+
+</launch>

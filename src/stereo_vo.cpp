@@ -140,6 +140,22 @@ int main(int argc, char **argv)
     float cy = 244.42522;
     float bf = -50.70819;
 
+    std::string filename = "camera_calib.yaml"; //TODO correct the name
+    cv::FileStorage fs;
+    fs.open(filename, cv::FileStorage::READ);
+
+    if(fs.isOpened())
+    {
+        cv::FileNode nd = (fs["calibration_parameters"]);
+	fx = (float)nd["fx"];
+	fy = (float)nd["fy"];
+        cx = (float)nd["cx"];
+        cy = (float)nd["cy"];
+        bf = (float)nd["bf"];
+    }
+
+
+
     cv::Mat projMatrl = (cv::Mat_<float>(3, 4) << fx, 0., cx, 0., 0., fy, cy, 0., 0,  0., 1., 0.);
     cv::Mat projMatrr = (cv::Mat_<float>(3, 4) << fx, 0., cx, bf, 0., fy, cy, 0., 0,  0., 1., 0.);
 

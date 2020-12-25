@@ -71,6 +71,7 @@ void StereoVO::run()
     // ---------------------
     // PnP
     trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation, false);
+    //displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
 
     // ------------------------------------------------
     // Integrating

@@ -215,4 +215,6 @@ void displayTracking(cv::Mat& imageLeft_t1,
       }
 
       cv::imshow("vis ", vis );  
+          cv::waitKey(1);
+
 }

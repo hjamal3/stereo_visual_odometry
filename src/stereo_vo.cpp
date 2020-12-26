@@ -63,14 +63,18 @@ void StereoVO::run()
     // Triangulate 3D Points
     // ---------------------
     cv::Mat points3D_t0, points4D_t0;
-    cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t0,  pointsRight_t0,  points4D_t0);
-    cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
+    if(pointsLeft_t0.size()>0 || pointsRight_t0.size()>0) //TODO should this be AND?
+    {
+        cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t0,  pointsRight_t0,  points4D_t0);
+    	cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
 
-    // ---------------------
-    // Tracking transfomation
-    // ---------------------
-    // PnP
-    trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation, false);
+
+	// ---------------------
+	// Tracking transfomation
+	// ---------------------
+	// PnP
+	trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation, false);
+    }
 
     // uncomment to visualize feature tracks
     displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);

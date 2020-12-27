@@ -62,17 +62,17 @@ void featureDetectionGoodFeaturesToTrack(cv::Mat image, std::vector<cv::Point2f>
     cv::goodFeaturesToTrack( image, points, maxCorners, qualityLevel, minDistance, mask, blockSize, useHarrisDetector, k );
 }
 
-void featureTracking(cv::Mat img_1, cv::Mat img_2, std::vector<cv::Point2f>& points1, std::vector<cv::Point2f>& points2, std::vector<uchar>& status)  
-{ 
-    //this function automatically gets rid of points for which tracking fails
+// void featureTracking(cv::Mat img_1, cv::Mat img_2, std::vector<cv::Point2f>& points1, std::vector<cv::Point2f>& points2, std::vector<uchar>& status)  
+// { 
+//     //this function automatically gets rid of points for which tracking fails
 
-    std::vector<float> err;                    
-    cv::Size winSize=cv::Size(21,21);                                                                                             
-    cv::TermCriteria termcrit=cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
+//     std::vector<float> err;                    
+//     cv::Size winSize=cv::Size(21,21); // TODO PARAM                                                                                      
+//     cv::TermCriteria termcrit=cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01); // TODO PARAM
 
-    calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, 0, 0.001);
-    deleteUnmatchFeatures(points1, points2, status);
-}
+//     calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, 0, 0.001); // TODO PARAM
+//     deleteUnmatchFeatures(points1, points2, status);
+// }
 
 void deleteUnmatchFeaturesCircle(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1,
                           std::vector<cv::Point2f>& points2, std::vector<cv::Point2f>& points3,
@@ -118,16 +118,16 @@ void deleteUnmatchFeaturesCircle(std::vector<cv::Point2f>& points0, std::vector<
     }  
 }
 
+
+//this function automatically gets rid of points for which tracking fails   
 void circularMatching(cv::Mat img_l_0, cv::Mat img_r_0, cv::Mat img_l_1, cv::Mat img_r_1,
                       std::vector<cv::Point2f>& points_l_0, std::vector<cv::Point2f>& points_r_0,
                       std::vector<cv::Point2f>& points_l_1, std::vector<cv::Point2f>& points_r_1,
                       std::vector<cv::Point2f>& points_l_0_return,
                       FeatureSet& current_features) { 
-  
-    //this function automatically gets rid of points for which tracking fails
+      std::vector<float> err;         
 
-    std::vector<float> err;                    
-    cv::Size winSize=cv::Size(21,21);                                                                                             
+    cv::Size winSize=cv::Size(20,20); // Lucas-Kanade optical flow window size                                                                                          
     cv::TermCriteria termcrit=cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01);
 
     std::vector<uchar> status0;
@@ -136,6 +136,7 @@ void circularMatching(cv::Mat img_l_0, cv::Mat img_r_0, cv::Mat img_l_1, cv::Mat
     std::vector<uchar> status3;
 
     clock_t tic = clock();
+    // sparse iterative version of the Lucas-Kanade optical flow in pyramids
     calcOpticalFlowPyrLK(img_l_0, img_r_0, points_l_0, points_r_0, status0, err, winSize, 3, termcrit, 0, 0.001);
     calcOpticalFlowPyrLK(img_r_0, img_r_1, points_r_0, points_r_1, status1, err, winSize, 3, termcrit, 0, 0.001);
     calcOpticalFlowPyrLK(img_r_1, img_l_1, points_r_1, points_l_1, status2, err, winSize, 3, termcrit, 0, 0.001);
@@ -248,8 +249,6 @@ void bucketingFeatures(cv::Mat& image, FeatureSet& current_features, int bucket_
             Buckets[buckets_idx].get_features(current_features);
         }
     }
-
-    std::cout << "current features number after bucketing: " << current_features.size() << std::endl;
 
 }
 

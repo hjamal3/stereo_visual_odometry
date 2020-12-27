@@ -28,9 +28,6 @@ void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, con
         return;
     }
 
-    // ------------
-    // Load images
-    // ------------
     imageLeft_t1 = rosImage2CvMat(image_left);
     imageRight_t1 = rosImage2CvMat(image_right);
 
@@ -53,36 +50,37 @@ void StereoVO::run()
                       pointsLeft_t1, 
                       pointsRight_t1);  
     t_2 = clock();
-    float time_matching_features = 1000*(double)(t_2-t_1)/CLOCKS_PER_SEC;
 
     // set new images as old images
     imageLeft_t0 = imageLeft_t1;
     imageRight_t0 = imageRight_t1;
 
+    // display visualize feature tracks
+    displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
+
+    if (currentVOFeatures.size() < 5 ) //TODO should this be AND?
+    {
+        std::cout << "not enough features matched for pose estimation" << std::endl;
+        frame_id++;
+        return;  
+    }
+
     // ---------------------
     // Triangulate 3D Points
     // ---------------------
     cv::Mat points3D_t0, points4D_t0;
-    if(pointsLeft_t0.size()>0 || pointsRight_t0.size()>0) //TODO should this be AND?
-    {
-        cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t0,  pointsRight_t0,  points4D_t0);
-    	cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
+    cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t0,  pointsRight_t0,  points4D_t0);
+    cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
 
-
-	// ---------------------
-	// Tracking transfomation
-	// ---------------------
-	// PnP
-	trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t0, pointsLeft_t1, points3D_t0, rotation, translation, false);
-    }
-
-    // uncomment to visualize feature tracks
-    displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
+    // ---------------------
+    // Tracking transfomation
+    // ---------------------
+    // PnP: computes rotation and translation between pair of images
+    trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t1, points3D_t0, rotation, translation, false);
 
     // ------------------------------------------------
     // Integrating
     // ------------------------------------------------
-
     cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
     cv::Mat rigid_body_transformation;
     if(abs(rotation_euler[1])<0.1 && abs(rotation_euler[0])<0.1 && abs(rotation_euler[2])<0.1)
@@ -104,7 +102,8 @@ void StereoVO::run()
     // benchmark times
     if (false)
     {
-        std::cout << "time features " << time_matching_features << std::endl;
+        float time_matching_features = 1000*(double)(t_2-t_1)/CLOCKS_PER_SEC;
+        std::cout << "time to match features " << time_matching_features << std::endl;
         std::cout << "time total " << float(t_b - t_a)/CLOCKS_PER_SEC*1000 << std::endl;
     }
 
@@ -153,7 +152,7 @@ int main(int argc, char **argv)
         std::cerr << "cv failed to load yaml" << std::endl;
         throw;
     }
-    float fx, fy, cx, cy, bf;
+    float fx, fy, cx, cy, bf; // Projection matrix parameters
     fs["fx"] >> fx;
     fs["fy"] >> fy;
     fs["cx"] >> cx;
@@ -167,8 +166,8 @@ int main(int argc, char **argv)
     StereoVO stereo_vo(projMatrl,projMatrr);
 
     // using message_filters to get stereo callback on one topic
-    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "left/image_raw", 1);
-    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "right/image_raw", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "left/image_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "right/image_rect", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;
 
     // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)

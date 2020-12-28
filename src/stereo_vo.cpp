@@ -1,5 +1,7 @@
 #include "stereo_visual_odometry/stereo_vo.h"
 #include <stdexcept>
+#include "sensor_msgs/CameraInfo.h"
+#include "image_geometry/pinhole_camera_model.h"
 
 StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
 {
@@ -33,6 +35,53 @@ void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, con
     // ------------
     imageLeft_t1 = rosImage2CvMat(image_left);
     imageRight_t1 = rosImage2CvMat(image_right);
+
+
+    //----------------
+    // TODO Rectify Images
+    // ---------------
+    sensor_msgs::CameraInfo msg_l, msg_r;
+    msg_l.width = 1280;
+    msg_l.height = 720;
+    msg_l.distortion_model = "plumb_bob";
+    msg_l.K = { 515.78513,    0.     ,  316.73695,
+                0.     ,  687.15254,  239.77138,
+                0.     ,    0.     ,    1.};
+    msg_l.D = {-0.341386, 0.132983, -0.000335, 0.000316, 0.000000};
+    msg_l.R = { 0.9999776 ,  0.00630791,  0.0022399 ,
+               -0.00630756,  0.99998009, -0.00016434,
+               -0.00224089,  0.00015021,  0.99999748};
+    msg_l.P = {659.84256,    0.     ,  322.2071 ,    0.     ,
+                 0.     ,  659.84256,  240.64672,    0.     ,
+                 0.     ,    0.     ,    1.     ,    0.};
+
+
+    msg_r.width = 1280;
+    msg_r.height = 720;
+    msg_r.distortion_model = "plumb_bob";
+    msg_r.K = { 515.78513,    0.     ,  316.73695,
+                  0.     ,  687.15254,  239.77138,
+                  0.     ,    0.     ,    1.};
+    msg_r.D = {-0.341386, 0.132983, -0.000335, 0.000316, 0.000000};
+    msg_r.R = { 0.9999776 ,  0.00630791,  0.0022399 ,
+               -0.00630756,  0.99998009, -0.00016434,
+               -0.00224089,  0.00015021,  0.99999748};
+    msg_r.P = {659.84256,    0.     ,  322.2071 ,    0.     ,
+	         0.     ,  659.84256,  240.64672,    0.     ,
+	         0.     ,    0.     ,    1.     ,    0.};
+
+    image_geometry::PinholeCameraModel modelo;
+    modelo.fromCameraInfo(msg_l);
+    cv::Mat rect_l, rect_r;
+
+    int interpolation = 0.5; //TODO what should this number be?
+    modelo.rectifyImage(imageLeft_t1, rect_l, interpolation);
+    modelo.fromCameraInfo(msg_r);
+    modelo.rectifyImage(imageRight_t1, rect_r, interpolation);
+
+    imageLeft_t1 =  rect_l;
+    imageRight_t1 =  rect_r;
+    
 
     // run the pipeline
     run();

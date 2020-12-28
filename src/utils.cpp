@@ -49,13 +49,14 @@ void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matri
 // --------------------------------
 
 
-void integrateOdometryStereo(int frame_i, cv::Mat& rigid_body_transformation, cv::Mat& frame_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo)
+void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo)
 {
 
     // std::cout << "rotation" << rotation << std::endl;
     // std::cout << "translation_stereo" << translation_stereo << std::endl;
 
-    
+    cv::Mat rigid_body_transformation;
+
     cv::Mat addup = (cv::Mat_<double>(1, 4) << 0, 0, 0, 1);
 
     cv::hconcat(rotation, translation_stereo, rigid_body_transformation);

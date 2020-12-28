@@ -82,10 +82,9 @@ void StereoVO::run()
     // Integrating
     // ------------------------------------------------
     cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
-    cv::Mat rigid_body_transformation;
     if(abs(rotation_euler[1])<0.1 && abs(rotation_euler[0])<0.1 && abs(rotation_euler[2])<0.1)
     {
-        integrateOdometryStereo(frame_id, rigid_body_transformation, frame_pose, rotation, translation);
+        integrateOdometryStereo(frame_id, frame_pose, rotation, translation);
 
     } else {
 

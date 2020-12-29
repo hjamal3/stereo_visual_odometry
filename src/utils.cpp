@@ -1,4 +1,9 @@
 #include "stereo_visual_odometry/utils.h"
+#include "nav_msgs/Odometry.h"
+
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Core>
+#include <eigen3/unsupported/Eigen/MatrixFunctions>
 
 // --------------------------------
 // Visualization
@@ -49,7 +54,7 @@ void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matri
 // --------------------------------
 
 
-void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo)
+void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo, ros::Publisher p)
 {
 
     // std::cout << "rotation" << rotation << std::endl;
@@ -79,6 +84,36 @@ void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& ro
       // std::cout << "Rpose" << Rpose << std::endl;
 
       frame_pose = frame_pose * rigid_body_transformation;
+
+
+      /*for display purposes TODO add covariance TODO remove*/
+      nav_msgs::Odometry msg;
+      msg.header.frame_id = "map";
+      ros::Time cur = ros::Time::now();
+      msg.header.stamp.sec = cur.toSec();
+      msg.header.stamp.nsec = cur.toNSec();
+
+      Eigen::Matrix3d r = Eigen::Matrix<double,3,3>::Zero();
+      
+      // copy rotation matrix from frame_pose to r
+      for(int i=0; i<3; i++)
+	      for(int j=0; j<3; j++)
+		      r(i,j) = frame_pose.at<double>(i,j);
+
+      Eigen::Quaterniond q(r);
+
+      //TODO change to pointer accesses
+      msg.pose.pose.position.x = frame_pose.at<double>(0,3);
+      msg.pose.pose.position.y = frame_pose.at<double>(1,3);
+      msg.pose.pose.position.z = frame_pose.at<double>(2,3);
+      msg.pose.pose.orientation.x = q.x();
+      msg.pose.pose.orientation.y = q.y();
+      msg.pose.pose.orientation.z = q.z();
+      msg.pose.pose.orientation.w = q.w();
+
+      p.publish(msg);
+
+      std::cout << "frame_pose" << frame_pose << std::endl;
 
     }
     else 

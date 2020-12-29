@@ -34,6 +34,9 @@ class StereoVO
 
 		cv::Mat rosImage2CvMat(sensor_msgs::ImageConstPtr img);
 
+		// to publish VO odometry
+		ros::Publisher vo_odom_pub;
+
 		// stereo pair callback
 		void stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right);
 

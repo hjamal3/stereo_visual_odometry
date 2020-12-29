@@ -21,6 +21,8 @@
 #include "feature.h"
 #include "matrix.h"
 
+#include "ros/ros.h"
+
 // --------------------------------
 // Visualization
 // --------------------------------
@@ -32,7 +34,7 @@ void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matri
 // Transformation
 // --------------------------------
 void integrateOdometryStereo(int frame_id, cv::Mat& frame_pose, const cv::Mat& rotation, 
-                            const cv::Mat& translation_stereo);
+                            const cv::Mat& translation_stereo, ros::Publisher p);
 
 bool isRotationMatrix(cv::Mat &R);
 

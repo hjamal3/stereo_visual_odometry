@@ -1,6 +1,8 @@
 #include "stereo_visual_odometry/stereo_vo.h"
 #include <stdexcept>
 
+#include "nav_msgs/Odometry.h"
+
 StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
 {
     projMatrl = projMatrl_;
@@ -84,7 +86,7 @@ void StereoVO::run()
     cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
     if(abs(rotation_euler[1])<0.1 && abs(rotation_euler[0])<0.1 && abs(rotation_euler[2])<0.1)
     {
-        integrateOdometryStereo(frame_id, frame_pose, rotation, translation);
+        integrateOdometryStereo(frame_id, frame_pose, rotation, translation, vo_odom_pub);
 
     } else {
 
@@ -165,13 +167,16 @@ int main(int argc, char **argv)
     StereoVO stereo_vo(projMatrl,projMatrr);
 
     // using message_filters to get stereo callback on one topic
-    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "left/image_rect", 1);
-    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "right/image_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "stereo/left/image_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "stereo/right/image_rect", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;
 
     // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
     message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), image1_sub, image2_sub);
     sync.registerCallback(boost::bind(&StereoVO::stereo_callback, &stereo_vo, _1, _2));
+
+    // regular publisher for vo odometry
+    stereo_vo.vo_odom_pub =  n.advertise<nav_msgs::Odometry>("vo_odom", 1000);
 
     std::cout << "Stereo VO Node Initialized!" << std::endl;
     

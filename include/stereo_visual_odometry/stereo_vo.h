@@ -26,6 +26,8 @@
 #include "utils.h"
 #include "visualOdometry.h"
 
+#include "nav_msgs/Odometry.h"
+
 class StereoVO
 {
 	public:
@@ -39,6 +41,9 @@ class StereoVO
 
 		// stereo pair callback
 		void stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right);
+
+		// EKF pose callback
+		void ekf_pose_callback(const nav_msgs::Odometry pose_msg); // TODO will need a lock around ekf_pose when multithreading
 
 		// runs the pipeline
 		void run();
@@ -58,6 +63,7 @@ class StereoVO
 		cv::Mat rotation = cv::Mat::eye(3, 3, CV_64F);
 		cv::Mat translation = cv::Mat::zeros(3, 1, CV_64F);
 		cv::Mat frame_pose = cv::Mat::eye(4, 4, CV_64F);
+		cv::Mat ekf_pose = cv::Mat::eye(4, 4, CV_64F); //TODO timestamp for EKF Pose so comparison before integrateOdom happens correctly
 
 		// std::cout << "frame_pose " << frame_pose << std::endl;
 		cv::Mat trajectory = cv::Mat::zeros(600, 1200, CV_8UC3);

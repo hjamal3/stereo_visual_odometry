@@ -54,8 +54,10 @@ void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matri
 // --------------------------------
 
 
-void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo, ros::Publisher p)
+void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, cv::Mat& ekf_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo, ros::Publisher p)
 {
+
+    
 
     // std::cout << "rotation" << rotation << std::endl;
     // std::cout << "translation_stereo" << translation_stereo << std::endl;
@@ -81,12 +83,18 @@ void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& ro
     ///if (scale > 0.05 && scale < 10) 
     if (scale > 0.001 && scale < 10) // WHY DO WE NEED THIS
     {
+
+      // TODO only set frame_pose to ekf_pose if they are very different AND/OR TODO if their timestamps are close
+      for(int i=0; i<3; i++)
+              for(int j=0; j<3; j++)
+			frame_pose.at<double>(i,j) = ekf_pose.at<double>(i,j);
+
       // std::cout << "Rpose" << Rpose << std::endl;
 
       frame_pose = frame_pose * rigid_body_transformation;
 
 
-      /*for display purposes TODO add covariance TODO remove*/
+      /*for rviz and integration with EKF purposes TODO add covariance TODO remove*/
       nav_msgs::Odometry msg;
       msg.header.frame_id = "map";
       ros::Time cur = ros::Time::now();

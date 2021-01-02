@@ -10,6 +10,7 @@ project(stereo_visual_odometry)
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   roscpp
+  image_geometry
   std_msgs
   sensor_msgs
   tf

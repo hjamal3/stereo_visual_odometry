@@ -2,6 +2,10 @@
 #include <stdexcept>
 
 #include "nav_msgs/Odometry.h"
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Core>
+#include <eigen3/unsupported/Eigen/MatrixFunctions>
+
 
 StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
 {
@@ -17,6 +21,29 @@ cv::Mat StereoVO::rosImage2CvMat(sensor_msgs::ImageConstPtr img) {
             return cv::Mat();
     }
     return cv_ptr->image;
+}
+
+void StereoVO::ekf_pose_callback(const nav_msgs::Odometry msg)
+{
+	//set ekf_pose
+	Eigen::Quaterniond q;
+	q.x() = msg.pose.pose.orientation.x;
+	q.y() = msg.pose.pose.orientation.y;
+	q.z() = msg.pose.pose.orientation.z;
+	q.w() = msg.pose.pose.orientation.w;
+
+	Eigen::Matrix3d r = q.toRotationMatrix(); //TODO Is normalization needed? 
+
+	for(int i=0; i<3; i++)
+              for(int j=0; j<3; j++)
+                      ekf_pose.at<double>(i,j) = r(i,j);
+
+	//TODO change to pointer accesses
+        ekf_pose.at<double>(0,3) = msg.pose.pose.position.x;
+	ekf_pose.at<double>(1,3) = msg.pose.pose.position.y;
+	ekf_pose.at<double>(2,3) = msg.pose.pose.position.z;
+
+	return;	 
 }
 
 void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right)
@@ -86,7 +113,7 @@ void StereoVO::run()
     cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
     if(abs(rotation_euler[1])<0.1 && abs(rotation_euler[0])<0.1 && abs(rotation_euler[2])<0.1)
     {
-        integrateOdometryStereo(frame_id, frame_pose, rotation, translation, vo_odom_pub);
+        integrateOdometryStereo(frame_id, frame_pose, ekf_pose, rotation, translation, vo_odom_pub);
 
     } else {
 
@@ -177,6 +204,9 @@ int main(int argc, char **argv)
 
     // regular publisher for vo odometry
     stereo_vo.vo_odom_pub =  n.advertise<nav_msgs::Odometry>("vo_odom", 1000);
+
+    //regular subscriber for EKF pose
+    ros::Subscriber ekf_pose_sub = n.subscribe("/pose", 0, &StereoVO::ekf_pose_callback, &stereo_vo); //TODO make subscriber a class variable in StereoVO ?
 
     std::cout << "Stereo VO Node Initialized!" << std::endl;
     

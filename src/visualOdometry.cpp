@@ -143,6 +143,101 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
 
 }
 
+// The transformation is parameterized using 6 parameters: 3 for rotation, 3 for translation
+struct Error2D {
+  Error2D(double pt_x, double pt_y, double pt_z, double pix_x, double pix_y)
+      : pt_x(pt_x), pt_y(pt_y), pt_z(pt_z), pix_x(pix_x), pix_y(pix_y) {}
+  template <typename T>
+  bool operator()(const T* const camera,
+                  T* residuals) const {
+    // camera[0,1,2] are the angle-axis rotation.
+    T p[3];
+    T point[3];
+    point[0] = T(pt_x);
+    point[1] = T(pt_y);
+    point[2] = T(pt_z);
+    ceres::AngleAxisRotatePoint(camera, point, p);
+  
+    // camera[3,4,5] are the translation.
+    p[0] += camera[3];
+    p[1] += camera[4];
+    p[2] += camera[5];
+
+    // z transform
+    T xp = p[0] / p[2];
+    T yp = p[1] / p[2];
+
+    // Compute final projected point position.
+    const T fx = T(718.8560);
+    const T fy = T(718.8560);
+    const T cx = T(607.1928);
+    const T cy = T(185.2157);
+    T predicted_x = fx * xp + cx;
+    T predicted_y = fy * yp + cy;
+
+    // The error is the difference between the predicted and observed position.
+    residuals[0] = predicted_x - pix_x;
+    residuals[1] = predicted_y - pix_y;
+
+    return true;
+  }
+  const double pt_x;
+  const double pt_y;
+  const double pt_z;
+  const double pix_x;
+  const double pix_y;
+};
+
+
+
+// optimizes rotation and translation with nonlinear optimization (minimizing reprojection error).
+// optimizes inliers from PnP only.
+void optimize_transformation(cv::Mat& rotation, cv::Mat& translation, cv::Mat & points3D, 
+    std::vector<cv::Point2f>& pointsLeft, cv::Mat& inliers, cv::Mat & projection_matrix)
+{
+    static bool init = false;
+    if (!init)
+    {
+        init = true;
+        google::InitGoogleLogging("vo"); // TODO PUT SOMEWHERE ELSE
+    }
+    // initial transformation
+    double* camera = new double[6];
+    camera[0] = rotation.at<double>(0,0);
+    camera[1] = rotation.at<double>(1,0);
+    camera[2] = rotation.at<double>(2,0);
+    camera[3] = translation.at<double>(0,0);
+    camera[4] = translation.at<double>(1,0);
+    camera[5] = translation.at<double>(2,0);
+
+    int num_inliers = int(inliers.size().height);
+    double camera_init[6];
+    for (int i = 0; i < 6; i++) camera_init[i] = camera[i];
+    ceres::Problem problem;
+    for (int i = 0; i < num_inliers; i++)
+    {
+        int idx = inliers.at<int>(0,i);
+        problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<Error2D, 2, 6>( // dimension of residual, dimension of camera
+            new Error2D(points3D.at<float>(idx,0), points3D.at<float>(idx,1), points3D.at<float>(idx,2), pointsLeft[idx].x, pointsLeft[idx].y)),
+        NULL,
+        camera);
+    }
+
+    ceres::Solver::Options options;
+    options.max_num_iterations = 25;
+    options.linear_solver_type = ceres::DENSE_SCHUR;
+    options.minimizer_progress_to_stdout = true;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+    std::cout << summary.BriefReport() << "\n";
+    std::cout << "Initial r: " << camera_init[0] << " " << camera_init[1] << " " << camera_init[2] << "\n";
+    std::cout << "Initial t: " << camera_init[3] << " " << camera_init[4] << " " << camera_init[5] << "\n";
+    std::cout << "Final r: " << camera[0] << " " << camera[1] << " " << camera[2] << "\n";
+    std::cout << "Final t: " << camera[3] << " " << camera[4] << " " << camera[5] << "\n";
+
+}
+
 
 void trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
                          std::vector<cv::Point2f>&  pointsLeft_t1, 
@@ -153,25 +248,6 @@ void trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
 {
 
     // Calculate frame to frame transformation
-
-    // -----------------------------------------------------------
-    // Rotation(R) estimation using Nister's Five Points Algorithm
-    // -----------------------------------------------------------
-    double focal = projMatrl.at<float>(0, 0);
-    cv::Point2d principle_point(projMatrl.at<float>(0, 2), projMatrl.at<float>(1, 2));
-
-    //recovering the pose and the essential cv::matrix
-    // cv::Mat E, mask;
-    // cv::Mat translation_mono = cv::Mat::zeros(3, 1, CV_64F);
-    // if(mono_rotation)
-    // {
-    //     E = cv::findEssentialMat(pointsLeft_t0, pointsLeft_t1, focal, principle_point, cv::RANSAC, 0.999, 1.0, mask);
-    //     cv::recoverPose(E, pointsLeft_t0, pointsLeft_t1, rotation, translation_mono, focal, principle_point, mask);
-    //     // std::cout << "recoverPose rotation: " << rotation << std::endl;
-    // }
-    // ------------------------------------------------
-    // Translation (t) estimation by use solvePnPRansac
-    // ------------------------------------------------
     cv::Mat distCoeffs = cv::Mat::zeros(4, 1, CV_64FC1);   
     cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64FC1);
     cv::Mat intrinsic_matrix = (cv::Mat_<float>(3, 3) << projMatrl.at<float>(0, 0), projMatrl.at<float>(0, 1), projMatrl.at<float>(0, 2),
@@ -196,9 +272,11 @@ void trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
                         intrinsic_matrix, cv::Mat(1, 8, CV_32F, cv::Scalar::all(0)),
                         rvec, translation, false, 200, 0.5, 20, &inliers);
     #endif
-    cv::Rodrigues(rvec, rotation);
 
-    std::cout << "[trackingFrame2Frame] inliers size: " << inliers.size() << std::endl;
+    // nonlinear optimization after, minimizing reprojection error
+    //optimize_transformation(rvec,translation,points3D_t0,pointsLeft_t1,inliers, projMatrl);
+    cv::Rodrigues(rvec, rotation);
+    std::cout << "[trackingFrame2Frame] inliers size: " << inliers.size()  << " out of " << pointsLeft_t1.size() << std::endl;
 
 }
 

@@ -26,6 +26,8 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
+find_package(Ceres REQUIRED)
+
 add_library(feature SHARED src/feature.cpp)
 add_library(bucket SHARED src/bucket.cpp)
 add_library(Utils SHARED src/utils.cpp)
@@ -34,7 +36,7 @@ add_library(visualOdometry SHARED src/visualOdometry.cpp)
 target_link_libraries( bucket ${OpenCV_LIBS} )
 target_link_libraries( feature ${OpenCV_LIBS} bucket)
 target_link_libraries( Utils ${OpenCV_LIBS} feature)
-target_link_libraries( visualOdometry Utils bucket feature ${OpenCV_LIBS})
+target_link_libraries( visualOdometry Utils bucket feature ${OpenCV_LIBS} Ceres::ceres)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed

@@ -54,6 +54,18 @@ void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matri
 // --------------------------------
 
 
+double error_val( cv::Mat& frame_pose, cv::Mat& ekf_pose)
+{
+    double sum = 0; 
+    for(int i=0; i<4; i++)
+        for(int j=0; j<4; j++)
+	{
+            double dif = frame_pose.at<double>(i,j) - ekf_pose.at<double>(i,j);
+	    sum += dif*dif;
+	}
+    return sum;
+}
+
 void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, cv::Mat& ekf_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo, ros::Publisher p)
 {
 
@@ -81,13 +93,13 @@ void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, cv::Mat& ekf_pose
     rigid_body_transformation = rigid_body_transformation.inv();
     // if ((scale>0.1)&&(translation_stereo.at<double>(2) > translation_stereo.at<double>(0)) && (translation_stereo.at<double>(2) > translation_stereo.at<double>(1))) 
     ///if (scale > 0.05 && scale < 10) 
-    if (scale > 0.001 && scale < 10) // WHY DO WE NEED THIS
+    if (scale > 0.001 && scale < 10) // WHY DO WE NEED THIS (scale checks)
     {
 
       // TODO only set frame_pose to ekf_pose if they are very different AND/OR TODO if their timestamps are close
-      for(int i=0; i<3; i++)
-              for(int j=0; j<3; j++)
-			frame_pose.at<double>(i,j) = ekf_pose.at<double>(i,j);
+      /*for(int i=0; i<4; i++)
+              for(int j=0; j<4; j++)
+			frame_pose.at<double>(i,j) = ekf_pose.at<double>(i,j);*/
 
       // std::cout << "Rpose" << Rpose << std::endl;
 

@@ -40,6 +40,8 @@ bool isRotationMatrix(cv::Mat &R);
 
 cv::Vec3f rotationMatrixToEulerAngles(cv::Mat &R);
 
+double error_val( cv::Mat& frame_pose, cv::Mat& ekf_pose);
+
 // --------------------------------
 // I/O
 // --------------------------------

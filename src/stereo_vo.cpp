@@ -43,6 +43,15 @@ void StereoVO::ekf_pose_callback(const nav_msgs::Odometry msg)
 	ekf_pose.at<double>(1,3) = msg.pose.pose.position.y;
 	ekf_pose.at<double>(2,3) = msg.pose.pose.position.z;
 
+	//if(error_val(frame_pose, ekf_pose)>2)
+	// TODO lock frame_pose
+	{
+	    for(int i=0; i<4; i++)
+                for(int j=0; j<4; j++)
+                    frame_pose.at<double>(i,j) = ekf_pose.at<double>(i,j);
+	}
+
+
 	return;	 
 }
 
@@ -93,6 +102,12 @@ void StereoVO::run()
         frame_id++;
         return;  
     }
+    /* (currentVOFeatures.size() < 5 ) //TODO should this be AND?
+    {
+        std::cout << "not enough features matched for pose estimation" << std::endl;
+        frame_id++;
+        return;
+    }*/
 
     // ---------------------
     // Triangulate 3D Points

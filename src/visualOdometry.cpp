@@ -1,4 +1,8 @@
 #include "stereo_visual_odometry/visualOdometry.h"
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Core>
+#include <eigen3/unsupported/Eigen/MatrixFunctions>
+
 using namespace cv;
 
 cv::Mat euler2rot(cv::Mat& rotationMatrix, const cv::Mat & euler)
@@ -247,4 +251,139 @@ void displayTracking(cv::Mat& imageLeft_t1,
 
     cv::imshow("vis ", vis );  
     cv::waitKey(1);
+}
+
+
+
+
+
+
+/***************Adopted from MSCKF: https://github.com/KumarRobotics/msckf_vio/blob/master/src/msckf_vio.cpp******************/
+void measurementJacobian(
+    const int cam_state_id,
+    const int feature_id,
+    Eigen::Matrix<double, 4, 6>& H_x, Eigen::Matrix<double, 4, 3>& H_f, Eigen::Vector4d& r, FeatureSet FS) {
+
+  // Prepare all the required data.
+  //const CAMState& cam_state = state_server.cam_states[cam_state_id]; //TODO store cameras somehow
+  const cv::Point2f feature = FS.points[feature_id];
+
+  /*// Cam0 pose.
+  Matrix3d R_w_c0 = quaternionToRotation(cam_state.orientation);
+  const Vector3d& t_c0_w = cam_state.position;
+
+  // Cam1 pose.
+  Matrix3d R_c0_c1 = CAMState::T_cam0_cam1.linear();
+  Matrix3d R_w_c1 = CAMState::T_cam0_cam1.linear() * R_w_c0;
+  Vector3d t_c1_w = t_c0_w - R_w_c1.transpose()*CAMState::T_cam0_cam1.translation();
+
+  // 3d feature position in the world frame.
+  // And its observation with the stereo cameras.
+  const Vector3d& p_w = feature.position;
+  const Vector4d& z = feature.observations.find(cam_state_id)->second;
+
+  // Convert the feature position from the world frame to
+  // the cam0 and cam1 frame.
+  Vector3d p_c0 = R_w_c0 * (p_w-t_c0_w);
+  Vector3d p_c1 = R_w_c1 * (p_w-t_c1_w);
+
+  // Compute the Jacobians.
+  Matrix<double, 4, 3> dz_dpc0 = Matrix<double, 4, 3>::Zero();
+  dz_dpc0(0, 0) = 1 / p_c0(2);
+  dz_dpc0(1, 1) = 1 / p_c0(2);
+  dz_dpc0(0, 2) = -p_c0(0) / (p_c0(2)*p_c0(2));
+  dz_dpc0(1, 2) = -p_c0(1) / (p_c0(2)*p_c0(2));
+
+  Matrix<double, 4, 3> dz_dpc1 = Matrix<double, 4, 3>::Zero();
+  dz_dpc1(2, 0) = 1 / p_c1(2);
+  dz_dpc1(3, 1) = 1 / p_c1(2);
+  dz_dpc1(2, 2) = -p_c1(0) / (p_c1(2)*p_c1(2));
+  dz_dpc1(3, 2) = -p_c1(1) / (p_c1(2)*p_c1(2));
+
+  Matrix<double, 3, 6> dpc0_dxc = Matrix<double, 3, 6>::Zero();
+  dpc0_dxc.leftCols(3) = skewSymmetric(p_c0);
+  dpc0_dxc.rightCols(3) = -R_w_c0;
+
+  Matrix<double, 3, 6> dpc1_dxc = Matrix<double, 3, 6>::Zero();
+  dpc1_dxc.leftCols(3) = R_c0_c1 * skewSymmetric(p_c0);
+  dpc1_dxc.rightCols(3) = -R_w_c1;
+
+  Matrix3d dpc0_dpg = R_w_c0;
+  Matrix3d dpc1_dpg = R_w_c1;
+
+  H_x = dz_dpc0*dpc0_dxc + dz_dpc1*dpc1_dxc;
+  H_f = dz_dpc0*dpc0_dpg + dz_dpc1*dpc1_dpg;*/
+
+  // Modifty the measurement Jacobian to ensure
+  // observability constrain.
+  /*Matrix<double, 4, 6> A = H_x;
+  Matrix<double, 6, 1> u = Matrix<double, 6, 1>::Zero(); //TODO IMU Callback that stores gravity vector
+  u.block<3, 1>(0, 0) = quaternionToRotation(
+      cam_state.orientation_null) * IMUState::gravity;
+  u.block<3, 1>(3, 0) = skewSymmetric(
+      p_w-cam_state.position_null) * IMUState::gravity;
+  H_x = A - A*u*(u.transpose()*u).inverse()*u.transpose();
+  H_f = -H_x.block<4, 3>(0, 3);*/
+
+  // Compute the residual.
+  /*r = z - Vector4d(p_c0(0)/p_c0(2), p_c0(1)/p_c0(2),
+      p_c1(0)/p_c1(2), p_c1(1)/p_c1(2));*/
+
+  return;
+}
+
+void featureJacobian(
+    const int feature_id,
+    const std::vector<int>& cam_state_ids,
+    Eigen::MatrixXd& H_x, Eigen::VectorXd& r) {
+
+  /*const auto& feature = map_server[feature_id];
+
+  // Check how many camera states in the provided camera
+  // id camera has actually seen this feature.
+  vector<StateIDType> valid_cam_state_ids(0);
+  for (const auto& cam_id : cam_state_ids) {
+    if (feature.observations.find(cam_id) ==
+        feature.observations.end()) continue;
+
+    valid_cam_state_ids.push_back(cam_id);
+  }
+
+  int jacobian_row_size = 0;
+  jacobian_row_size = 4 * valid_cam_state_ids.size();
+
+  MatrixXd H_xj = MatrixXd::Zero(jacobian_row_size,
+      21+state_server.cam_states.size()*6);
+  MatrixXd H_fj = MatrixXd::Zero(jacobian_row_size, 3);
+  VectorXd r_j = VectorXd::Zero(jacobian_row_size);
+  int stack_cntr = 0;
+
+  for (const auto& cam_id : valid_cam_state_ids) {
+
+    Matrix<double, 4, 6> H_xi = Matrix<double, 4, 6>::Zero();
+    Matrix<double, 4, 3> H_fi = Matrix<double, 4, 3>::Zero();
+    Vector4d r_i = Vector4d::Zero();
+    measurementJacobian(cam_id, feature.id, H_xi, H_fi, r_i);
+
+    auto cam_state_iter = state_server.cam_states.find(cam_id);
+    int cam_state_cntr = std::distance(
+        state_server.cam_states.begin(), cam_state_iter);
+
+    // Stack the Jacobians.
+    H_xj.block<4, 6>(stack_cntr, 21+6*cam_state_cntr) = H_xi;
+    H_fj.block<4, 3>(stack_cntr, 0) = H_fi;
+    r_j.segment<4>(stack_cntr) = r_i;
+    stack_cntr += 4;
+  }
+
+  // Project the residual and Jacobians onto the nullspace
+  // of H_fj.
+  JacobiSVD<MatrixXd> svd_helper(H_fj, ComputeFullU | ComputeThinV);
+  MatrixXd A = svd_helper.matrixU().rightCols(
+      jacobian_row_size - 3);
+
+  H_x = A.transpose() * H_xj;
+  r = A.transpose() * r_j;*/
+
+  return;
 }

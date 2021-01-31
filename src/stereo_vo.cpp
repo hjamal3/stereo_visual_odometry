@@ -171,6 +171,13 @@ void StereoVO::run()
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
     }
     frame_id++;
+
+    std::cout << "AGES: ";
+    for(int i =0; i< currentVOFeatures.ages.size(); i++)
+    {
+	    std::cout << std::to_string(currentVOFeatures.ages[i]) << " ";
+    }
+    std::cout << "\n";
 }
 
 

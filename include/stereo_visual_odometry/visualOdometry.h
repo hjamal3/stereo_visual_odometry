@@ -21,9 +21,6 @@
 #include "bucket.h"
 #include "utils.h"
 
-#include "ceres/ceres.h"
-#include "ceres/rotation.h"
-
 void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
                       cv::Mat& imageLeft_t1, cv::Mat& imageRight_t1, 
                       FeatureSet& currentVOFeatures,
@@ -53,9 +50,6 @@ void displayTracking(cv::Mat& imageLeft_t1,
                      std::vector<cv::Point2f>&  pointsLeft_t0,
                      std::vector<cv::Point2f>&  pointsLeft_t1);
 
-void displayPoints(cv::Mat& image, std::vector<cv::Point2f>&  points);
-
-void optimize_transformation(cv::Mat& rotation, cv::Mat& translation, cv::Mat& points3D, 
-  cv::Mat& pointsLeft, cv::Mat& inliers, cv::Mat & projection_matrix);
+void displayPoints(cv::Mat& image, std::vector<cv::Point2f>&  points); 
 
 #endif

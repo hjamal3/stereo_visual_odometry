@@ -165,8 +165,8 @@ int main(int argc, char **argv)
     StereoVO stereo_vo(projMatrl,projMatrr);
 
     // using message_filters to get stereo callback on one topic
-    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "left/image_rect", 1);
-    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "right/image_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;
 
     // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)

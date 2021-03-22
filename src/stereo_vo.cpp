@@ -122,10 +122,8 @@ void StereoVO::run()
         transform.setRotation(q);
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "vo_start", "camera"));
 
-        // initial transform of camera
         transform.setOrigin(tf::Vector3(0.0, 0.0,0.0));
-        tf::Quaternion q2; // camera wrt body rotation
-        q2.setEulerZYX(-1.5708,0,-2.32129);
+        tf::Quaternion q2(-0.6484585017186756, 0.648460883644128, -0.28195800926029446, 0.2819569735725981);
         transform.setRotation(q2);
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "vo_start"));
     }

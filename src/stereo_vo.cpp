@@ -82,7 +82,7 @@ void StereoVO::run()
     // Integrating
     // ------------------------------------------------
     cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation);
-    if(abs(rotation_euler[1])<0.1 && abs(rotation_euler[0])<0.1 && abs(rotation_euler[2])<0.1)
+    if(abs(rotation_euler[1])<0.2 && abs(rotation_euler[0])<0.2 && abs(rotation_euler[2])<0.2)
     {
         integrateOdometryStereo(frame_id, frame_pose, rotation, translation);
 
@@ -112,6 +112,7 @@ void StereoVO::run()
         std::cout << xyz << std::endl;
         static tf::TransformBroadcaster br;
 
+	// transform of robot
         tf::Transform transform;
         transform.setOrigin( tf::Vector3(xyz.at<double>(0), xyz.at<double>(1), xyz.at<double>(2)) );
         tf::Quaternion q;
@@ -119,12 +120,12 @@ void StereoVO::run()
             R.at<double>(1,1),R.at<double>(1,2),R.at<double>(2,0),R.at<double>(2,1),R.at<double>(2,2));
         R_tf.getRotation(q);
         transform.setRotation(q);
-        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "odom", "camera"));
+        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "vo_start", "camera"));
 
         transform.setOrigin(tf::Vector3(0.0, 0.0,0.0));
         tf::Quaternion q2(0.5,-0.5,0.5,-0.5);
         transform.setRotation(q2);
-        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "odom"));
+        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "vo_start"));
     }
     frame_id++;
 }

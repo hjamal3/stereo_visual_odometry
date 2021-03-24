@@ -1,5 +1,5 @@
-#include "stereo_visual_odometry/feature.h"
-#include "stereo_visual_odometry/bucket.h"
+#include "feature.h"
+#include "bucket.h"
 
 #if USE_CUDA
 static void download(const cv::cuda::GpuMat& d_mat, std::vector<cv::Point2f>& vec)

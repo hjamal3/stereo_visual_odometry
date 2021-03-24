@@ -29,12 +29,12 @@ include_directories(
 add_library(feature SHARED src/feature.cpp)
 add_library(bucket SHARED src/bucket.cpp)
 add_library(Utils SHARED src/utils.cpp)
-add_library(visualOdometry SHARED src/visualOdometry.cpp)
+add_library(vo SHARED src/vo.cpp)
 
 target_link_libraries( bucket ${OpenCV_LIBS} )
 target_link_libraries( feature ${OpenCV_LIBS} bucket)
 target_link_libraries( Utils ${OpenCV_LIBS} feature)
-target_link_libraries( visualOdometry Utils bucket feature ${OpenCV_LIBS})
+target_link_libraries( vo Utils bucket feature ${OpenCV_LIBS})
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -153,12 +153,12 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/stereo_visual_odometry_node.cpp)
-add_executable(stereo_vo_node src/stereo_vo.cpp)
+add_executable(stereo_vo_node src/stereo_vo_node.cpp)
 add_dependencies(stereo_vo_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(stereo_vo_node
    ${catkin_LIBRARIES}
    ${OpenCV_LIBRARIES}
-   Utils bucket feature visualOdometry
+   Utils bucket feature vo
 )
 
 ## Rename C++ executable without prefix

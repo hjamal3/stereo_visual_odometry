@@ -1,4 +1,4 @@
-#include "stereo_visual_odometry/bucket.h"
+#include "bucket.h"
 
 Bucket::Bucket(int size){
     max_size = size;

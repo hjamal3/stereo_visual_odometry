@@ -24,7 +24,7 @@
 
 #include "feature.h"
 #include "utils.h"
-#include "visualOdometry.h"
+#include "vo.h"
 
 class StereoVO
 {

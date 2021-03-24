@@ -1,4 +1,4 @@
-#include "stereo_visual_odometry/stereo_vo.h"
+#include "stereo_vo_node.h"
 #include <stdexcept>
 
 StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
@@ -58,7 +58,7 @@ void StereoVO::run()
     // display visualize feature tracks
     displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
 
-    if (currentVOFeatures.size() < 5 ) //TODO should this be AND?
+    if (currentVOFeatures.size() < 30 ) //TODO should this be AND?
     {
         std::cout << "not enough features matched for pose estimation" << std::endl;
         frame_id++;

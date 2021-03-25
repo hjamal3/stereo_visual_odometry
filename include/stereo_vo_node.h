@@ -1,16 +1,22 @@
 #include "ros/ros.h"
 #include "sensor_msgs/Image.h"
+#include "std_msgs/Int32MultiArray.h"
+#include "geometry_msgs/Quaternion.h"
 #include <tf/transform_broadcaster.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <cv_bridge/cv_bridge.h>
-
 #include "opencv2/video/tracking.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
+
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Geometry> 
+
 
 #include <iostream>
 #include <ctype.h>
@@ -25,6 +31,23 @@
 #include "feature.h"
 #include "utils.h"
 #include "vo.h"
+
+
+// wheel encoders
+bool first_time_enc = true;
+bool first_time_quat = true;
+int ticks_l_prev = 0;
+int ticks_r_prev = 0;
+double ticks_per_m = 1316;
+double L = 0.5842;
+double R = 0.0889;
+Eigen::Matrix<double,3,1> encoders_translation(3);
+Eigen::Matrix<double,3,1> vo_translation(3);
+Eigen::Quaternion<double> vo_rot;
+Eigen::Matrix<double,3,1> global_pos(3);
+Eigen::Quaternion<double> current_rot;
+Eigen::Quaternion<double> camera_to_world_rot(0.2819569735725981, -0.6484585017186756, 0.648460883644128, -0.28195800926029446); // camera to world frame
+
 
 class StereoVO
 {

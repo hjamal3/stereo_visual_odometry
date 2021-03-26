@@ -1,6 +1,8 @@
 #include "stereo_vo_node.h"
 #include <stdexcept>
 
+const int features_threshold = 40;
+
 // quat from ekf node
 void quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
 {
@@ -78,15 +80,9 @@ void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, con
 void StereoVO::run()
 {
     std::cout << std::endl << "frame id " << frame_id << std::endl;
-
     std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
-    matchingFeatures( imageLeft_t0, imageRight_t0,
-                      imageLeft_t1, imageRight_t1, 
-                      currentVOFeatures,
-                      pointsLeft_t0, 
-                      pointsRight_t0, 
-                      pointsLeft_t1, 
-                      pointsRight_t1);  
+    matchingFeatures( imageLeft_t0, imageRight_t0, imageLeft_t1, imageRight_t1,  currentVOFeatures,
+                      pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1);  
 
     // set new images as old images
     imageLeft_t0 = imageLeft_t1;
@@ -94,55 +90,40 @@ void StereoVO::run()
 
     // display visualize feature tracks
     displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
-
-    // if not enough features, don't use vo
+    // if not enough features don't use vo
     bool use_vo = true;
-    if (currentVOFeatures.size() < 10 ) //TODO should this be AND?
+    if (currentVOFeatures.size() < features_threshold)
     {
-        std::cout << "not enough features for vo" << std::endl;
+        std::cout << "not enough features for vo: " << currentVOFeatures.size()  << " < " << features_threshold << std::endl;
 		use_vo = false;        
     } else 
     {
-	    // ---------------------
 	    // Triangulate 3D Points
-	    // ---------------------
 	    cv::Mat points3D_t0, points4D_t0;
 	    cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t0,  pointsRight_t0,  points4D_t0);
 	    cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
-	    // ---------------------
-	    // Tracking transfomation
-	    // ---------------------
-	    // PnP: computes rotation and translation between pair of images
+	    // PnP: computes rotation and translation between previous 3D points and next features
 	    trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t1, points3D_t0, rotation, translation, false);
-	    // ------------------------------------------------
-	    // Integrating translations and rotations to global estimate
-	    // ------------------------------------------------
 	    vo_translation << translation.at<double>(0), translation.at<double>(1), translation.at<double>(2);
+	    vo_translation *= -1; // pnp returns T_t1t0, invert to get T_t0t1... 
 	    cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation); // change to axis angle	    
-	    if(abs(rotation_euler[1])<0.2 && abs(rotation_euler[0])<0.2 && abs(rotation_euler[2])<0.2)
-	        integrateOdometryStereo(frame_id, frame_pose, rotation, translation);
-	    else
-	        std::cout << "Too large rotation"  << std::endl;
-	    // t_b = clock();
-	    // float frame_time = 1000*(double)(t_b-t_a)/CLOCKS_PER_SEC;
-	    // float fps = 1000/frame_time;
-	    //cout << "[Info] frame times (ms): " << frame_time << endl;
-	    //cout << "[Info] FPS: " << fps << endl;
+	    // filter if angle rotation is too large. probably just 90 degrees
+	    if (vo_translation[0] > 0.1 || vo_translation[1] > 0.1 || vo_translation[2] > 0.1) use_vo = false; // failure
     }
 
     if (use_vo)
     {
+    	std::cout << "Using VO update" << std::endl;
     	// rotate vo translation to rover frame
-    	Eigen::Matrix<double,3,1> vo_trans_rover_frame = camera_to_world_rot._transformVector(vo_translation);
-
+    	Eigen::Matrix<double,3,1> vo_trans_rover_frame = R_bc._transformVector(vo_translation);
     	// rotate vo translation in rover frame to global frame
-    	Eigen::Matrix<double,3,1> vo_trans_global_frame = current_rot._transformVector(vo_trans_rover_frame);
-
+    	Eigen::Matrix<double,3,1> vo_trans_global_frame = vo_rot._transformVector(vo_trans_rover_frame);
     	// add to global position
     	global_pos += vo_trans_global_frame;
 
     } else 
     {
+    	std::cout << "Using encoder update" << std::endl;
     	// add to global position
     	global_pos += encoders_translation;
     }
@@ -156,9 +137,7 @@ void StereoVO::run()
     if (true)
     {
         static tf::TransformBroadcaster br;
-		// transform of robot
         tf::Transform transform;
-        //double x = global_pos[0];
         transform.setOrigin(tf::Vector3(global_pos[0],global_pos[1],global_pos[2]));
         tf::Quaternion q (current_rot.x(), current_rot.y(), current_rot.z(), current_rot.w());
         transform.setRotation(q);

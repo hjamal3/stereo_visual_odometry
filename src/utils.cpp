@@ -53,7 +53,7 @@ void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& ro
 {
 
     // std::cout << "rotation" << rotation << std::endl;
-    // std::cout << "translation_stereo" << translation_stereo << std::endl;
+    std::cout << "translation_stereo" << translation_stereo << std::endl;
 
     cv::Mat rigid_body_transformation;
 

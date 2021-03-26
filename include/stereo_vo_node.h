@@ -31,16 +31,16 @@
 #include "feature.h"
 #include "utils.h"
 #include "vo.h"
-
+#include <math.h>
 
 // wheel encoders
 bool first_time_enc = true;
 bool first_time_quat = true;
 int ticks_l_prev = 0;
 int ticks_r_prev = 0;
-const double ticks_per_m = 1316;
 const double L = 0.5842;
-const double R = 0.0889;
+const double R = 0.1016;
+const double ticks_per_m = 1316/(M_PI*2*R);
 Eigen::Matrix<double,3,1> encoders_translation(3);
 Eigen::Matrix<double,3,1> vo_translation(3);
 Eigen::Quaternion<double> vo_rot;

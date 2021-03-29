@@ -123,7 +123,7 @@ void StereoVO::run()
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "vo_start", "camera"));
 
         transform.setOrigin(tf::Vector3(0.0, 0.0,0.0));
-        tf::Quaternion q2(-0.6484585017186756, 0.648460883644128, -0.28195800926029446, 0.2819569735725981);
+        tf::Quaternion q2(-0.5963445, 0.5963423, -0.3799659,0.3799673); // xyzw
         transform.setRotation(q2);
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "vo_start"));
     }

@@ -17,9 +17,12 @@
 #include <fstream>
 #include <string>
 
-
 #include "feature.h"
 #include "matrix.h"
+
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Geometry> 
 
 // --------------------------------
 // Visualization
@@ -31,6 +34,8 @@ void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matri
 // --------------------------------
 // Transformation
 // --------------------------------
+void cv_rotm_to_eigen_quat(Eigen::Quaternion<double> & q, const cv::Mat & R);
+
 void integrateOdometryStereo(int frame_id, cv::Mat& frame_pose, const cv::Mat& rotation, 
                             const cv::Mat& translation_stereo);
 

@@ -1,8 +1,6 @@
 #include "stereo_vo_node.h"
 #include <stdexcept>
 
-const int features_threshold = 40;
-
 // quat from ekf node
 void quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
 {
@@ -10,13 +8,16 @@ void quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
 	current_rot.x() = msg->x;
 	current_rot.y() = msg->y;
 	current_rot.z() = msg->z;
-	if (first_time_quat)
+	if (!orientation_init)
+    {
+        orientation_init = true;
 		vo_rot = current_rot;
+    }
 }
 
 // encoders callback
 void encoders_callback(const std_msgs::Int32MultiArray::ConstPtr& msg)
-{		
+{    
 	int ticks_l_curr = (msg->data[0]+msg->data[2])/2.0; // total ticks left wheel
 	int ticks_r_curr = (msg->data[1]+msg->data[3])/2.0; // total ticks right wheel
 	
@@ -27,6 +28,8 @@ void encoders_callback(const std_msgs::Int32MultiArray::ConstPtr& msg)
 		first_time_enc = false;
 		return;
 	}
+
+    if (!orientation_init) return; 
 
 	// instantaneous distance moved by robot	
 	double Dl = (ticks_l_curr-ticks_l_prev)/ticks_per_m;
@@ -73,6 +76,8 @@ void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, con
     imageLeft_t1 = rosImage2CvMat(image_left);
     imageRight_t1 = rosImage2CvMat(image_right);
 
+    if (!orientation_init) return; 
+
     // run the pipeline
     run();
 }
@@ -102,24 +107,41 @@ void StereoVO::run()
 	    cv::Mat points3D_t0, points4D_t0;
 	    cv::triangulatePoints( projMatrl,  projMatrr,  pointsLeft_t0,  pointsRight_t0,  points4D_t0);
 	    cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
+
 	    // PnP: computes rotation and translation between previous 3D points and next features
 	    trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t1, points3D_t0, rotation, translation, false);
-	    vo_translation << translation.at<double>(0), translation.at<double>(1), translation.at<double>(2);
-	    vo_translation *= -1; // pnp returns T_t1t0, invert to get T_t0t1... 
-	    cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation); // change to axis angle	    
+        Eigen::Quaternion<double> q;
+        cv_rotm_to_eigen_quat(q, rotation);
+
+        vo_translation << translation.at<double>(0), translation.at<double>(1), translation.at<double>(2);
+	    vo_translation = -1*(q._transformVector(vo_translation)); // pnp returns T_t1t0, invert to get T_t0t1... 
+
+        double scale = vo_translation.norm();
+        if (scale < 0.001 || scale > 10)
+        {
+            use_vo = false;
+        }
+        // Filtering
+        cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation); // change to axis angle	    
 	    // filter if angle rotation is too large. probably just 90 degrees
-	    if (vo_translation[0] > 0.1 || vo_translation[1] > 0.1 || vo_translation[2] > 0.1) use_vo = false; // failure
+	    if (vo_translation[0] > 0.1 || vo_translation[1] > 0.05 || vo_translation[2] > 0.05 || rotation_euler[0] > 0.2 || rotation_euler[1] > 0.2 || rotation_euler[2] > 0.2)
+        {
+            use_vo = false; // failure
+            std::cout << "VO JUMP";
+        }
     }
 
     if (use_vo)
     {
     	std::cout << "Using VO update" << std::endl;
     	// rotate vo translation to rover frame
-    	Eigen::Matrix<double,3,1> vo_trans_rover_frame = R_bc._transformVector(vo_translation);
+    	Eigen::Matrix<double,3,1> vo_trans_rover_frame = q_bc._transformVector(vo_translation);
     	// rotate vo translation in rover frame to global frame
-    	Eigen::Matrix<double,3,1> vo_trans_global_frame = vo_rot._transformVector(vo_trans_rover_frame);
+    	Eigen::Matrix<double,3,1> vo_trans_global_frame = current_rot._transformVector(vo_trans_rover_frame);
     	// add to global position
     	global_pos += vo_trans_global_frame;
+
+        std::cout << vo_trans_global_frame << std::endl;
 
     } else 
     {
@@ -153,8 +175,6 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "stereo_vo_node");
 
     ros::NodeHandle n;
-
-    ros::Rate loop_rate(20);
 
     std::string filename; //TODO correct the name
     if (!(n.getParam("calib_yaml",filename)))

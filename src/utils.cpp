@@ -48,6 +48,17 @@ void display(int frame_id, cv::Mat& trajectory, cv::Mat& pose, std::vector<Matri
 // Transformation
 // --------------------------------
 
+void cv_rotm_to_eigen_quat(Eigen::Quaternion<double> & q, const cv::Mat & R)
+{
+    static Eigen::Matrix<double,3,3> R_eig(3,3);
+    static Eigen::Matrix<double,3,3> R_eig_T(3,3);
+    R_eig << R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), R.at<double>(1,0), R.at<double>(1,1),
+    R.at<double>(1,2), R.at<double>(2,0), R.at<double>(2,1),R.at<double>(2,2);
+    R_eig_T = R_eig.transpose();
+    q = R_eig_T;
+
+}
+
 
 void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo)
 {
@@ -95,7 +106,6 @@ bool isRotationMatrix(cv::Mat &R)
     cv::Mat I = cv::Mat::eye(3,3, shouldBeIdentity.type());
      
     return  norm(I, shouldBeIdentity) < 1e-6;
-     
 }
  
 // Calculates rotation matrix to euler angles

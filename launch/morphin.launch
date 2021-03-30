@@ -2,5 +2,8 @@
 <node pkg="stereo_visual_odometry" type="stereo_vo_node" name="stereo_vo_node"  output="screen" /> 
 <param name="calib_yaml" type="str" value="$(find stereo_visual_odometry)/calibration/morphin.yaml"/>
 
+<!-- Run orientation estimator-->
+<node pkg="imu_ekf_ros" type="init_imu_ekf_node" name="init_ekf"  output="screen"/> 
+<node pkg="imu_ekf_ros" type="imu_ekf_node" name="ekf" output="screen"/>
 
 </launch>

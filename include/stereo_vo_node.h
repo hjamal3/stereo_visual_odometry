@@ -35,20 +35,22 @@
 
 // wheel encoders
 bool first_time_enc = true;
-bool first_time_quat = true;
+bool orientation_init = false;
 int ticks_l_prev = 0;
 int ticks_r_prev = 0;
 const double L = 0.5842;
 const double R = 0.1016;
 const double ticks_per_m = 1316/(M_PI*2*R);
+const int features_threshold = 60;
 Eigen::Matrix<double,3,1> encoders_translation(3);
 Eigen::Matrix<double,3,1> vo_translation(3);
 Eigen::Quaternion<double> vo_rot;
 Eigen::Matrix<double,3,1> global_pos(3);
 Eigen::Quaternion<double> current_rot;
-const Eigen::Quaternion<double> R_bc(0.3799673, -0.5963445, 0.5963423, -0.3799659); // camera to body frame
-// Note: eigen is w x y z and tf is x y z w
+const Eigen::Quaternion<double> q_bc(0.3995,-0.5834,0.5834,-0.3995);
+ // camera to imu frame, wxyz
 
+// Note: eigen is w x y z and tf is x y z w
 class StereoVO
 {
 	public:

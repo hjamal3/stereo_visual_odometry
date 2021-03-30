@@ -46,7 +46,7 @@ Eigen::Matrix<double,3,1> vo_translation(3);
 Eigen::Quaternion<double> vo_rot;
 Eigen::Matrix<double,3,1> global_pos(3);
 Eigen::Quaternion<double> current_rot;
-const Eigen::Quaternion<double> R_bc(0.2819569735725981, -0.6484585017186756, 0.648460883644128, -0.28195800926029446); // camera to body frame
+const Eigen::Quaternion<double> R_bc(0.3799673, -0.5963445, 0.5963423, -0.3799659); // camera to body frame
 // Note: eigen is w x y z and tf is x y z w
 
 class StereoVO

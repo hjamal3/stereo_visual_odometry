@@ -55,11 +55,17 @@ StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
 cv::Mat StereoVO::rosImage2CvMat(sensor_msgs::ImageConstPtr img) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
-            cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
+            cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::BGR8);
     } catch (cv_bridge::Exception &e) {
             return cv::Mat();
     }
     return cv_ptr->image;
+}
+
+void StereoVO::to_greyscale(const cv::Mat &img_color, cv::Mat &img_grey)
+{
+    //cv::cvtColor(img_color, img_grey, CV_BGR2GRAY);
+    img_grey = img_color; // comment if colored
 }
 
 void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right)
@@ -67,14 +73,13 @@ void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, con
 
     if (!frame_id)
     {
-        imageLeft_t0 = rosImage2CvMat(image_left);
-        imageRight_t0 = rosImage2CvMat(image_right);
+        to_greyscale(rosImage2CvMat(image_left), imageLeft_t0);
+        to_greyscale(rosImage2CvMat(image_right), imageRight_t0);
         frame_id++;
         return;
     }
-
-    imageLeft_t1 = rosImage2CvMat(image_left);
-    imageRight_t1 = rosImage2CvMat(image_right);
+    to_greyscale(rosImage2CvMat(image_left), imageLeft_t1);
+    to_greyscale(rosImage2CvMat(image_right), imageRight_t1);
 
     if (!orientation_init) return; 
 
@@ -119,6 +124,7 @@ void StereoVO::run()
         double scale = vo_translation.norm();
         if (scale < 0.001 || scale > 10)
         {
+            std::cout << "Scale error" << std::endl;
             use_vo = false;
         }
         // Filtering
@@ -127,7 +133,7 @@ void StereoVO::run()
 	    if (vo_translation[0] > 0.1 || vo_translation[1] > 0.05 || vo_translation[2] > 0.05 || rotation_euler[0] > 0.2 || rotation_euler[1] > 0.2 || rotation_euler[2] > 0.2)
         {
             use_vo = false; // failure
-            std::cout << "VO JUMP";
+            std::cout << "VO JUMP" << std::endl;
         }
     }
 
@@ -202,8 +208,12 @@ int main(int argc, char **argv)
     StereoVO stereo_vo(projMatrl,projMatrr);
 
     // using message_filters to get stereo callback on one topic
+    // message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect_color", 1);
+    // message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect_color", 1);
+
     message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect", 1);
     message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect", 1);
+
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;
 
     // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)

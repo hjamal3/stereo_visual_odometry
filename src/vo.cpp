@@ -92,28 +92,27 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     // add new features if current number of features is below a threshold. TODO PARAM
     if (currentVOFeatures.size() < 2000)
     {
-
         // append new features with old features
         appendNewFeatures(imageLeft_t0, currentVOFeatures);   
-        //std::cout << "Current feature set size: " << currentVOFeatures.points.size() << std::endl;
+        std::cout << "Current feature set size: " << currentVOFeatures.points.size() << std::endl;
     }
 
     // --------------------------------------------------------
     // Feature tracking using KLT tracker, bucketing and circular matching
     // --------------------------------------------------------
-    int bucket_size = std::min(imageLeft_t0.rows,imageLeft_t0.cols)/10; // TODO PARAM
+    int bucket_size = std::min(imageLeft_t0.rows,imageLeft_t0.cols)/7; // TODO PARAM
     int features_per_bucket = 1; // TODO PARAM
     std::cout << "number of features before bucketing: " << currentVOFeatures.points.size() << std::endl;
 
     // feature detector points before bucketing
-    //displayPoints(imageLeft_t0,currentVOFeatures.points);
+    // displayPoints(imageLeft_t0,currentVOFeatures.points);
 
     // filter features in currentVOFeatures so that one per bucket
-    bucketingFeatures(imageLeft_t0, currentVOFeatures, bucket_size, features_per_bucket);
+    // bucketingFeatures(imageLeft_t0, currentVOFeatures, bucket_size, features_per_bucket);
     pointsLeft_t0 = currentVOFeatures.points;
 
     // feature detector points after bucketing
-    //displayPoints(imageLeft_t0,currentVOFeatures.points);
+    // displayPoints(imageLeft_t0,currentVOFeatures.points);
 
     #if USE_CUDA
         circularMatching_gpu(imageLeft_t0, imageRight_t0, imageLeft_t1, imageRight_t1,

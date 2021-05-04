@@ -62,6 +62,9 @@ class StereoVO
 		// stereo pair callback
 		void stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right);
 
+		// greyscale conversion
+		void to_greyscale(const cv::Mat &img_color, cv::Mat &img_grey);
+
 		// runs the pipeline
 		void run();
 

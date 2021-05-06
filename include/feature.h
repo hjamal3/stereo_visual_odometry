@@ -27,19 +27,22 @@
 struct FeatureSet {
     std::vector<cv::Point2f>  points;
     std::vector<int>  ages;
+    std::vector<int>  strengths;
+
     int size(){
         return points.size();
     }
     void clear(){
         points.clear();
         ages.clear();
+        strengths.clear();
     }
  };
 
 
 void deleteUnmatchFeatures(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1, std::vector<uchar>& status);
 
-void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points);
+void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points, std::vector<float>& response_strengths);
 
 void featureDetectionGoodFeaturesToTrack(cv::Mat image, std::vector<cv::Point2f>& points);
 
@@ -71,5 +74,11 @@ void bucketingFeatures(cv::Mat& image, FeatureSet& current_features, int bucket_
 void appendNewFeatures(cv::Mat& image, FeatureSet& current_features);
 
 void appendNewFeatures(std::vector<cv::Point2f> points_new, FeatureSet& current_features);
+
+void displayTracking(cv::Mat& imageLeft_t1, 
+                     std::vector<cv::Point2f>&  pointsLeft_t0,
+                     std::vector<cv::Point2f>&  pointsLeft_t1);
+
+void displayPoints(cv::Mat& image, std::vector<cv::Point2f>&  points); 
 
 #endif

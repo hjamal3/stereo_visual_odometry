@@ -28,7 +28,7 @@ public:
     Bucket(int);
     ~Bucket();
 
-    void add_feature(cv::Point2f, int);
+    void add_feature(const cv::Point2f, const int, const float);
     void get_features(FeatureSet&);
 
     int size();

@@ -56,6 +56,7 @@ cv::Mat StereoVO::rosImage2CvMat(sensor_msgs::ImageConstPtr img) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
             cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::BGR8);
+            // cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
     } catch (cv_bridge::Exception &e) {
             return cv::Mat();
     }
@@ -64,13 +65,14 @@ cv::Mat StereoVO::rosImage2CvMat(sensor_msgs::ImageConstPtr img) {
 
 void StereoVO::to_greyscale(const cv::Mat &img_color, cv::Mat &img_grey)
 {
-    //cv::cvtColor(img_color, img_grey, CV_BGR2GRAY);
-    img_grey = img_color; // comment if colored
+    cv::cvtColor(img_color, img_grey, CV_BGR2GRAY);
+    cv::normalize(img_grey, img_grey, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+    // img_grey = img_color; // comment if colored
 }
 
 void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right)
 {
-
     if (!frame_id)
     {
         to_greyscale(rosImage2CvMat(image_left), imageLeft_t0);
@@ -98,8 +100,9 @@ void StereoVO::run()
     imageLeft_t0 = imageLeft_t1;
     imageRight_t0 = imageRight_t1;
 
-    // display visualize feature tracks
+    // visualize feature tracks
     displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
+
     // if not enough features don't use vo
     bool use_vo = true;
     if (currentVOFeatures.size() < features_threshold)
@@ -208,11 +211,11 @@ int main(int argc, char **argv)
     StereoVO stereo_vo(projMatrl,projMatrr);
 
     // using message_filters to get stereo callback on one topic
-    // message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect_color", 1);
-    // message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect_color", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect_color", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect_color", 1);
 
-    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect", 1);
-    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect", 1);
+    // message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect", 1);
+    // message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect", 1);
 
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;
 

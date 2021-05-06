@@ -37,7 +37,7 @@ void deleteUnmatchFeatures(std::vector<cv::Point2f>& points0, std::vector<cv::Po
     }
 }
 
-void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points)  
+void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points, std::vector<float> & response_strength)  
 {   
     //uses FAST as for feature dection, modify parameters as necessary
     std::vector<cv::KeyPoint> keypoints;
@@ -45,34 +45,87 @@ void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points)
     bool nonmaxSuppression = true;
     cv::FAST(image, keypoints, fast_threshold, nonmaxSuppression);
     cv::KeyPoint::convert(keypoints, points, std::vector<int>());
+    response_strength.reserve(points.size());
+    for (const auto keypoint : keypoints) response_strength.push_back(keypoint.response); 
 }
 
-void featureDetectionGoodFeaturesToTrack(cv::Mat image, std::vector<cv::Point2f>& points)  
-{   
-    //uses GoodFeaturesToTrack for feature dection, modify parameters as necessary
+/* Add more features to feature set using image */
+void appendNewFeatures(cv::Mat& image, FeatureSet& current_features)
+{
+    /* Fast feature detection */
+    std::vector<cv::Point2f>  points_new;
+    std::vector<float>  response_strength;
 
-    int maxCorners = 5000;
-    double qualityLevel = 0.01;
-    double minDistance = 5.;
-    int blockSize = 3;
-    bool useHarrisDetector = false;
-    double k = 0.04;
-    cv::Mat mask;
+    featureDetectionFast(image, points_new, response_strength);
+    current_features.points.insert(current_features.points.end(), points_new.begin(), points_new.end());
+    std::vector<int>  ages_new(points_new.size(), 0);
+    current_features.ages.insert(current_features.ages.end(), ages_new.begin(), ages_new.end());
+    current_features.strengths.insert(current_features.strengths.end(), response_strength.begin(), response_strength.end());
 
-    cv::goodFeaturesToTrack( image, points, maxCorners, qualityLevel, minDistance, mask, blockSize, useHarrisDetector, k );
+    /* Display feature points after feature detection */
+    // displayPoints(image,current_features.points);
+
+    /* Bucketing features */
+    const int bucket_size = std::min(image.rows,image.cols)/7; // TODO PARAM
+    const int features_per_bucket = 2; // TODO PARAM
+    std::cout << "number of features before bucketing: " << current_features.points.size() << std::endl;
+
+    // filter features in currentVOFeatures so that one per bucket
+    bucketingFeatures(image, current_features, bucket_size, features_per_bucket);
+    std::cout << "number of features after bucketing: " << current_features.points.size() << std::endl;
+
+    /* Display feature points after bucketing */
+    // displayPoints(image,current_features.points);
+
 }
 
-// void featureTracking(cv::Mat img_1, cv::Mat img_2, std::vector<cv::Point2f>& points1, std::vector<cv::Point2f>& points2, std::vector<uchar>& status)  
-// { 
-//     //this function automatically gets rid of points for which tracking fails
+void bucketingFeatures(cv::Mat& image, FeatureSet& current_features, int bucket_size, int features_per_bucket)
+{
+    // This function buckets features
+    // image: only use for getting dimension of the image
+    // bucket_size: bucket size in pixel is bucket_size*bucket_size
+    // features_per_bucket: number of selected features per bucket
+    int image_height = image.rows;
+    int image_width = image.cols;
+    int buckets_nums_height = image_height/bucket_size;
+    int buckets_nums_width = image_width/bucket_size;
+    int buckets_number = buckets_nums_height * buckets_nums_width;
 
-//     std::vector<float> err;                    
-//     cv::Size winSize=cv::Size(21,21); // TODO PARAM                                                                                      
-//     cv::TermCriteria termcrit=cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01); // TODO PARAM
+    std::vector<Bucket> Buckets;
 
-//     calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, 0, 0.001); // TODO PARAM
-//     deleteUnmatchFeatures(points1, points2, status);
-// }
+    // initialize all the buckets
+    for (int buckets_idx_height = 0; buckets_idx_height <= buckets_nums_height; buckets_idx_height++)
+    {
+      for (int buckets_idx_width = 0; buckets_idx_width <= buckets_nums_width; buckets_idx_width++)
+      {
+        Buckets.push_back(Bucket(features_per_bucket));
+      }
+    }
+
+    /* Bucket all current features into buckets by their location */
+    int buckets_nums_height_idx, buckets_nums_width_idx, buckets_idx;
+    for (int i = 0; i < current_features.points.size(); ++i)
+    {
+        buckets_nums_height_idx = current_features.points[i].y/bucket_size;
+        buckets_nums_width_idx = current_features.points[i].x/bucket_size;
+        buckets_idx = buckets_nums_height_idx*buckets_nums_width + buckets_nums_width_idx;
+        Buckets[buckets_idx].add_feature(current_features.points[i], current_features.ages[i], current_features.strengths[i]);
+    }
+
+    /* Take features from buckets and put them back into the feature set */
+    current_features.clear();
+    for (int buckets_idx_height = 0; buckets_idx_height <= buckets_nums_height; buckets_idx_height++)
+    {
+        for (int buckets_idx_width = 0; buckets_idx_width <= buckets_nums_width; buckets_idx_width++)
+        {
+            buckets_idx = buckets_idx_height*buckets_nums_width + buckets_idx_width;
+            FeatureSet bucket_features = Buckets[buckets_idx].features;
+            current_features.points.insert(current_features.points.end(), bucket_features.points.begin(), bucket_features.points.end());
+            current_features.ages.insert(current_features.ages.end(), bucket_features.ages.begin(), bucket_features.ages.end());
+            current_features.strengths.insert(current_features.strengths.end(), bucket_features.strengths.begin(), bucket_features.strengths.end());
+        }
+    }
+}
 
 void deleteUnmatchFeaturesCircle(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1,
                           std::vector<cv::Point2f>& points2, std::vector<cv::Point2f>& points3,
@@ -96,12 +149,13 @@ void deleteUnmatchFeaturesCircle(std::vector<cv::Point2f>& points0, std::vector<
         cv::Point2f pt3 = points3.at(i- indexCorrection);
         cv::Point2f pt0_r = points0_return.at(i- indexCorrection);
 
-        if ((status3.at(i) == 0)||(pt3.x<0)||(pt3.y<0)||
-            (status2.at(i) == 0)||(pt2.x<0)||(pt2.y<0)||
-            (status1.at(i) == 0)||(pt1.x<0)||(pt1.y<0)||
-            (status0.at(i) == 0)||(pt0.x<0)||(pt0.y<0))   
+        if ((status3.at(i) == 0) || (pt3.x<0) || (pt3.y<0) ||
+            (status2.at(i) == 0) || (pt2.x<0) || (pt2.y<0) ||
+            (status1.at(i) == 0) || (pt1.x<0) || (pt1.y<0) ||
+            (status0.at(i) == 0) || (pt0.x<0) || (pt0.y<0))   
         {
-            if((pt0.x<0)||(pt0.y<0)||(pt1.x<0)||(pt1.y<0)||(pt2.x<0)||(pt2.y<0)||(pt3.x<0)||(pt3.y<0))    
+            if((pt0.x<0) || (pt0.y<0) || (pt1.x<0) || (pt1.y<0) 
+                || (pt2.x<0) || (pt2.y<0) || (pt3.x<0) || (pt3.y<0))    
             {
                 status3.at(i) = 0;
             }
@@ -116,6 +170,22 @@ void deleteUnmatchFeaturesCircle(std::vector<cv::Point2f>& points0, std::vector<
         }
 
     }  
+}
+
+
+void featureDetectionGoodFeaturesToTrack(cv::Mat image, std::vector<cv::Point2f>& points)  
+{   
+    //uses GoodFeaturesToTrack for feature dection, modify parameters as necessary
+
+    int maxCorners = 5000;
+    double qualityLevel = 0.01;
+    double minDistance = 5.;
+    int blockSize = 3;
+    bool useHarrisDetector = false;
+    double k = 0.04;
+    cv::Mat mask;
+
+    cv::goodFeaturesToTrack( image, points, maxCorners, qualityLevel, minDistance, mask, blockSize, useHarrisDetector, k );
 }
 
 
@@ -137,17 +207,16 @@ void circularMatching(cv::Mat img_l_0, cv::Mat img_r_0, cv::Mat img_l_1, cv::Mat
 
     //clock_t tic = clock();
     // sparse iterative version of the Lucas-Kanade optical flow in pyramids
-    calcOpticalFlowPyrLK(img_l_0, img_r_0, points_l_0, points_r_0, status0, err, winSize, 3, termcrit, 0, 0.001);
-    calcOpticalFlowPyrLK(img_r_0, img_r_1, points_r_0, points_r_1, status1, err, winSize, 3, termcrit, 0, 0.001);
-    calcOpticalFlowPyrLK(img_r_1, img_l_1, points_r_1, points_l_1, status2, err, winSize, 3, termcrit, 0, 0.001);
-    calcOpticalFlowPyrLK(img_l_1, img_l_0, points_l_1, points_l_0_return, status3, err, winSize, 3, termcrit, 0, 0.001);
+    calcOpticalFlowPyrLK(img_l_0, img_r_0, points_l_0, points_r_0, status0, err, winSize, 3, termcrit, cv::OPTFLOW_LK_GET_MIN_EIGENVALS, 0.01);
+    calcOpticalFlowPyrLK(img_r_0, img_r_1, points_r_0, points_r_1, status1, err, winSize, 3, termcrit, cv::OPTFLOW_LK_GET_MIN_EIGENVALS, 0.01);
+    calcOpticalFlowPyrLK(img_r_1, img_l_1, points_r_1, points_l_1, status2, err, winSize, 3, termcrit, cv::OPTFLOW_LK_GET_MIN_EIGENVALS, 0.01);
+    calcOpticalFlowPyrLK(img_l_1, img_l_0, points_l_1, points_l_0_return, status3, err, winSize, 3, termcrit, cv::OPTFLOW_LK_GET_MIN_EIGENVALS, 0.01);
     //clock_t toc = clock();
     //std::cerr << "calcOpticalFlowPyrLK time: " << float(toc - tic)/CLOCKS_PER_SEC*1000 << "ms" << std::endl;
 
     deleteUnmatchFeaturesCircle(points_l_0, points_r_0, points_r_1, points_l_1, points_l_0_return,
                         status0, status1, status2, status3, current_features.ages);
 
-    // std::cout << "points : " << points_l_0.size() << " "<< points_r_0.size() << " "<< points_r_1.size() << " "<< points_l_1.size() << " "<<std::endl;
 }
 
 #if USE_CUDA
@@ -206,57 +275,49 @@ void circularMatching_gpu(cv::Mat img_l_0, cv::Mat img_r_0, cv::Mat img_l_1, cv:
 }
 #endif
 
-void bucketingFeatures(cv::Mat& image, FeatureSet& current_features, int bucket_size, int features_per_bucket)
+void displayPoints(cv::Mat& image, std::vector<cv::Point2f>&  points)
 {
-    // This function buckets features
-    // image: only use for getting dimension of the image
-    // bucket_size: bucket size in pixel is bucket_size*bucket_size
-    // features_per_bucket: number of selected features per bucket
-    int image_height = image.rows;
-    int image_width = image.cols;
-    int buckets_nums_height = image_height/bucket_size;
-    int buckets_nums_width = image_width/bucket_size;
-    int buckets_number = buckets_nums_height * buckets_nums_width;
+    int radius = 2;
+    cv::Mat vis;
 
-    std::vector<Bucket> Buckets;
+    cv::cvtColor(image, vis, cv::COLOR_GRAY2BGR, 3);
 
-    // initialize all the buckets
-    for (int buckets_idx_height = 0; buckets_idx_height <= buckets_nums_height; buckets_idx_height++)
+    for (int i = 0; i < points.size(); i++)
     {
-      for (int buckets_idx_width = 0; buckets_idx_width <= buckets_nums_width; buckets_idx_width++)
-      {
-        Buckets.push_back(Bucket(features_per_bucket));
-      }
+        cv::circle(vis, cv::Point(points[i].x, points[i].y), radius, CV_RGB(0,255,0));
     }
 
-    // bucket all current features into buckets by their location
-    int buckets_nums_height_idx, buckets_nums_width_idx, buckets_idx;
-    for (int i = 0; i < current_features.points.size(); ++i)
-    {
-        buckets_nums_height_idx = current_features.points[i].y/bucket_size;
-        buckets_nums_width_idx = current_features.points[i].x/bucket_size;
-        buckets_idx = buckets_nums_height_idx*buckets_nums_width + buckets_nums_width_idx;
-        Buckets[buckets_idx].add_feature(current_features.points[i], current_features.ages[i]);
-    }
-
-    // get features back from buckets
-    current_features.clear();
-    for (int buckets_idx_height = 0; buckets_idx_height <= buckets_nums_height; buckets_idx_height++)
-    {
-        for (int buckets_idx_width = 0; buckets_idx_width <= buckets_nums_width; buckets_idx_width++)
-        {
-            buckets_idx = buckets_idx_height*buckets_nums_width + buckets_idx_width;
-            Buckets[buckets_idx].get_features(current_features);
-        }
-    }
-
+    cv::imshow("vis ", vis );  
+    cv::waitKey(1);
 }
 
-void appendNewFeatures(cv::Mat& image, FeatureSet& current_features)
+void displayTracking(cv::Mat& imageLeft_t1, 
+                     std::vector<cv::Point2f>&  pointsLeft_t0,
+                     std::vector<cv::Point2f>&  pointsLeft_t1)
 {
-    std::vector<cv::Point2f>  points_new;
-    featureDetectionFast(image, points_new);
-    current_features.points.insert(current_features.points.end(), points_new.begin(), points_new.end());
-    std::vector<int>  ages_new(points_new.size(), 0);
-    current_features.ages.insert(current_features.ages.end(), ages_new.begin(), ages_new.end());
+    // -----------------------------------------
+    // Display feature racking
+    // -----------------------------------------
+    int radius = 2;
+    cv::Mat vis;
+
+    cv::cvtColor(imageLeft_t1, vis, cv::COLOR_GRAY2BGR, 3);
+
+    for (int i = 0; i < pointsLeft_t0.size(); i++)
+    {
+      cv::circle(vis, cv::Point(pointsLeft_t0[i].x, pointsLeft_t0[i].y), radius, CV_RGB(0,255,0));
+    }
+
+    for (int i = 0; i < pointsLeft_t1.size(); i++)
+    {
+      cv::circle(vis, cv::Point(pointsLeft_t1[i].x, pointsLeft_t1[i].y), radius, CV_RGB(255,0,0));
+    }
+
+    for (int i = 0; i < pointsLeft_t1.size(); i++)
+    {
+      cv::line(vis, pointsLeft_t0[i], pointsLeft_t1[i], CV_RGB(0,255,0));
+    }
+
+    cv::imshow("vis ", vis );  
+    cv::waitKey(1);
 }

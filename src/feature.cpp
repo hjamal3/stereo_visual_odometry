@@ -42,9 +42,8 @@ void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points, std::
     //uses FAST as for feature dection, modify parameters as necessary
 
     std::vector<cv::KeyPoint> keypoints;
-    int fast_threshold = 40;
     bool nonmaxSuppression = true;
-    cv::FAST(image, keypoints, fast_threshold, nonmaxSuppression);
+    cv::FAST(image, keypoints, FAST_THRESHOLD, nonmaxSuppression);
     
     // other feature detectors    
     // static cv::Ptr<cv::Feature2D> f2d = cv::xfeatures2d::StarDetector::create();

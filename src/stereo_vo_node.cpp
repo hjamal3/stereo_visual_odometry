@@ -2,7 +2,7 @@
 #include <stdexcept>
 
 // quat from ekf node
-void quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
+void StereoVO::quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
 {
 	current_rot.w() = msg->w;
 	current_rot.x() = msg->x;
@@ -16,7 +16,7 @@ void quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
 }
 
 // encoders callback
-void encoders_callback(const std_msgs::Int32MultiArray::ConstPtr& msg)
+void StereoVO::encoders_callback(const std_msgs::Int32MultiArray::ConstPtr& msg)
 {    
 	int ticks_l_curr = (msg->data[0]+msg->data[2])/2.0; // total ticks left wheel
 	int ticks_r_curr = (msg->data[1]+msg->data[3])/2.0; // total ticks right wheel
@@ -52,7 +52,7 @@ StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
     projMatrr = projMatrr_;
 }
 
-cv::Mat StereoVO::rosImage2CvMat(sensor_msgs::ImageConstPtr img) {
+cv::Mat StereoVO::rosImage2CvMat(const sensor_msgs::ImageConstPtr img) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
             cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
@@ -103,7 +103,7 @@ void StereoVO::run()
     bool use_vo = true;
     if (currentVOFeatures.size() < features_threshold)
     {
-        std::cout << "not enough features for vo: " << currentVOFeatures.size()  << " < " << features_threshold << std::endl;
+        std::cout << "not enough features detected for vo: " << currentVOFeatures.size()  << " < " << features_threshold << std::endl;
 		use_vo = false;        
     } else 
     {
@@ -113,22 +113,33 @@ void StereoVO::run()
 	    cv::convertPointsFromHomogeneous(points4D_t0.t(), points3D_t0);
 
 	    // PnP: computes rotation and translation between previous 3D points and next features
-	    trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t1, points3D_t0, rotation, translation, false);
-        Eigen::Quaternion<double> q;
-        cv_rotm_to_eigen_quat(q, rotation);
+	    int inliers = trackingFrame2Frame(projMatrl, projMatrr, pointsLeft_t1, points3D_t0, rotation, translation);
 
-        vo_translation << translation.at<double>(0), translation.at<double>(1), translation.at<double>(2);
-	    vo_translation = -1*(q._transformVector(vo_translation)); // pnp returns T_t1t0, invert to get T_t0t1... 
-
-        // checking validity of VO
-        double scale_translation = vo_translation.norm();
-        cv::Rodrigues(rotation, rotation_rodrigues);  
-        double angle = cv::norm(rotation_rodrigues, cv::NORM_L2);
-
-        if (scale_translation < 0.001 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
+        // PnP may not converge
+        if (inliers < features_threshold)
         {
-            std::cout << "VO rejected. Translation too small or too big or rotation too big" << std::endl;
+            std::cout << "Not enough inliers from PnP: " << inliers << " < " << features_threshold << std::endl;
             use_vo = false;
+        }
+        else 
+        {
+            Eigen::Quaternion<double> q;
+            cv_rotm_to_eigen_quat(q, rotation);
+
+            vo_translation << translation.at<double>(0), translation.at<double>(1), translation.at<double>(2);
+            vo_translation = -1*(q._transformVector(vo_translation)); // pnp returns T_t1t0, invert to get T_t0t1... 
+
+            // checking validity of VO
+            double scale_translation = vo_translation.norm();
+            cv::Rodrigues(rotation, rotation_rodrigues);  
+            double angle = cv::norm(rotation_rodrigues, cv::NORM_L2);
+
+            // Translation might be too big or too small, as well as rotation
+            if (scale_translation < 0.001 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
+            {
+                std::cout << "VO rejected. Translation too small or too big or rotation too big" << std::endl;
+                use_vo = false;
+            }
         }
     }
 
@@ -141,9 +152,6 @@ void StereoVO::run()
     	Eigen::Matrix<double,3,1> vo_trans_global_frame = current_rot._transformVector(vo_trans_rover_frame);
     	// add to global position
     	global_pos += vo_trans_global_frame;
-
-        std::cout << vo_trans_global_frame << std::endl;
-
     } else 
     {
     	std::cout << "Using encoder update" << std::endl;
@@ -157,15 +165,12 @@ void StereoVO::run()
     encoders_translation << 0,0,0;
 
     // publish transforms
-    if (true)
-    {
-        static tf::TransformBroadcaster br;
-        tf::Transform transform;
-        transform.setOrigin(tf::Vector3(global_pos[0],global_pos[1],global_pos[2]));
-        tf::Quaternion q (current_rot.x(), current_rot.y(), current_rot.z(), current_rot.w());
-        transform.setRotation(q);
-        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "yolo"));
-    }
+    static tf::TransformBroadcaster br;
+    tf::Transform transform;
+    transform.setOrigin(tf::Vector3(global_pos[0],global_pos[1],global_pos[2]));
+    tf::Quaternion q (current_rot.x(), current_rot.y(), current_rot.z(), current_rot.w());
+    transform.setRotation(q);
+    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "yolo"));
 }
 
 
@@ -212,10 +217,10 @@ int main(int argc, char **argv)
     sync.registerCallback(boost::bind(&StereoVO::stereo_callback, &stereo_vo, _1, _2));
 
     // wheel encoders
-	ros::Subscriber sub_encoders = n.subscribe("wheels", 0, encoders_callback);
+	ros::Subscriber sub_encoders = n.subscribe("wheels", 0, &StereoVO::encoders_callback, &stereo_vo);
 
     // orienation from orientation ekf
-    ros::Subscriber sub_quat = n.subscribe("quat",0,quat_callback);
+    ros::Subscriber sub_quat = n.subscribe("quat", 0, &StereoVO::quat_callback, &stereo_vo);
 
     std::cout << "Stereo VO Node Initialized!" << std::endl;
     

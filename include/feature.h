@@ -49,6 +49,8 @@ const int BUCKET_DIVISOR = 10;
 // maximum number of features inside a bucket 
 const int FEATURES_PER_BUCKET = 2; // TODO PARAM
 
+// fast feature corner threshold
+const int FAST_THRESHOLD = 20;
 
 void deleteUnmatchFeatures(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1, std::vector<uchar>& status);
 

@@ -138,12 +138,11 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
 }
 
 
-void trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
+int trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
                          std::vector<cv::Point2f>&  pointsLeft_t1, 
                          cv::Mat& points3D_t0,
                          cv::Mat& rotation,
-                         cv::Mat& translation,
-                         bool mono_rotation)
+                         cv::Mat& translation)
 {
 
     // Calculate frame to frame transformation
@@ -174,5 +173,5 @@ void trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
 
     cv::Rodrigues(rvec, rotation);
     std::cout << "[trackingFrame2Frame] inliers size: " << inliers.size()  << " out of " << pointsLeft_t1.size() << std::endl;
-
+    return inliers.size().height;
 }

@@ -55,38 +55,31 @@ StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
 cv::Mat StereoVO::rosImage2CvMat(sensor_msgs::ImageConstPtr img) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
-            cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::BGR8);
-            // cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
+            cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
     } catch (cv_bridge::Exception &e) {
+            std::cout << "exception" << std::endl;
             return cv::Mat();
     }
     return cv_ptr->image;
-}
-
-void StereoVO::to_greyscale(const cv::Mat &img_color, cv::Mat &img_grey)
-{
-    cv::cvtColor(img_color, img_grey, CV_BGR2GRAY);
-    cv::normalize(img_grey, img_grey, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-
-    // img_grey = img_color; // comment if colored
 }
 
 void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right)
 {
     if (!frame_id)
     {
-        to_greyscale(rosImage2CvMat(image_left), imageLeft_t0);
-        to_greyscale(rosImage2CvMat(image_right), imageRight_t0);
+        imageLeft_t0 = rosImage2CvMat(image_left);
+        imageRight_t0 = rosImage2CvMat(image_right);
         frame_id++;
         return;
     }
-    to_greyscale(rosImage2CvMat(image_left), imageLeft_t1);
-    to_greyscale(rosImage2CvMat(image_right), imageRight_t1);
+    imageLeft_t1 = rosImage2CvMat(image_left);
+    imageRight_t1 = rosImage2CvMat(image_right);
 
+    frame_id++;
+
+    // start the vo pipeline after orientation is initialized
     if (!orientation_init) return; 
-
-    // run the pipeline
-    run();
+    else run();
 }
 
 void StereoVO::run()
@@ -95,6 +88,9 @@ void StereoVO::run()
     std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
     matchingFeatures( imageLeft_t0, imageRight_t0, imageLeft_t1, imageRight_t1,  currentVOFeatures,
                       pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1);  
+
+    // visualize previous and next left image
+    // displayTwoImages(imageLeft_t0, imageLeft_t1);
 
     // set new images as old images
     imageLeft_t0 = imageLeft_t1;
@@ -124,19 +120,15 @@ void StereoVO::run()
         vo_translation << translation.at<double>(0), translation.at<double>(1), translation.at<double>(2);
 	    vo_translation = -1*(q._transformVector(vo_translation)); // pnp returns T_t1t0, invert to get T_t0t1... 
 
-        double scale = vo_translation.norm();
-        if (scale < 0.001 || scale > 10)
+        // checking validity of VO
+        double scale_translation = vo_translation.norm();
+        cv::Rodrigues(rotation, rotation_rodrigues);  
+        double angle = cv::norm(rotation_rodrigues, cv::NORM_L2);
+
+        if (scale_translation < 0.001 || scale_translation > 2 || abs(angle) > 0.5)
         {
-            std::cout << "Scale error" << std::endl;
+            std::cout << "VO rejected. Translation too small or too big or rotation too big" << std::endl;
             use_vo = false;
-        }
-        // Filtering
-        cv::Vec3f rotation_euler = rotationMatrixToEulerAngles(rotation); // change to axis angle	    
-	    // filter if angle rotation is too large. probably just 90 degrees
-	    if (vo_translation[0] > 0.1 || vo_translation[1] > 0.05 || vo_translation[2] > 0.05 || rotation_euler[0] > 0.2 || rotation_euler[1] > 0.2 || rotation_euler[2] > 0.2)
-        {
-            use_vo = false; // failure
-            std::cout << "VO JUMP" << std::endl;
         }
     }
 
@@ -174,7 +166,6 @@ void StereoVO::run()
         transform.setRotation(q);
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "yolo"));
     }
-    frame_id++;
 }
 
 
@@ -211,16 +202,13 @@ int main(int argc, char **argv)
     StereoVO stereo_vo(projMatrl,projMatrr);
 
     // using message_filters to get stereo callback on one topic
-    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect_color", 1);
-    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect_color", 1);
-
-    // message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect", 1);
-    // message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect", 1);
 
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;
 
     // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
-    message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), image1_sub, image2_sub);
+    message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(1), image1_sub, image2_sub);
     sync.registerCallback(boost::bind(&StereoVO::stereo_callback, &stereo_vo, _1, _2));
 
     // wheel encoders

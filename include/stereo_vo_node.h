@@ -83,9 +83,12 @@ class StereoVO
 		cv::Mat rotation = cv::Mat::eye(3, 3, CV_64F);
 		cv::Mat translation = cv::Mat::zeros(3, 1, CV_64F);
 		cv::Mat frame_pose = cv::Mat::eye(4, 4, CV_64F);
+		cv::Mat rotation_rodrigues = cv::Mat::zeros(3, 1, CV_64F);
+
 
 		// std::cout << "frame_pose " << frame_pose << std::endl;
 		cv::Mat trajectory = cv::Mat::zeros(600, 1200, CV_8UC3);
+
 
 		// set of features currently tracked
 		FeatureSet currentVOFeatures;

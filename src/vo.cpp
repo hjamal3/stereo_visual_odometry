@@ -86,6 +86,10 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     // ----------------------------
     // Feature detection using FAST and bucketing
     // ----------------------------
+    currentVOFeatures.points.clear();
+    currentVOFeatures.ages.clear();
+    currentVOFeatures.strengths.clear();
+
     std::vector<cv::Point2f>  pointsLeftReturn_t0;   // feature points to check cicular mathcing validation
 
     // add new features if current number of features is below a threshold. TODO PARAM
@@ -102,6 +106,10 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     // Feature tracking using KLT tracker and circular matching
     // --------------------------------------------------------
     if (currentVOFeatures.points.size() == 0) return; // early exit
+
+    // Debugging: show two images
+    // displayTwoImages(imageLeft_t0, imageLeft_t1);
+    // std::cout << imageLeft_t1-imageLeft_t0 << std::endl;
 
     #if USE_CUDA
         circularMatching_gpu(imageLeft_t0, imageRight_t0, imageLeft_t1, imageRight_t1,

@@ -40,10 +40,16 @@ void deleteUnmatchFeatures(std::vector<cv::Point2f>& points0, std::vector<cv::Po
 void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points, std::vector<float> & response_strength)  
 {   
     //uses FAST as for feature dection, modify parameters as necessary
+
     std::vector<cv::KeyPoint> keypoints;
     int fast_threshold = 20;
     bool nonmaxSuppression = true;
     cv::FAST(image, keypoints, fast_threshold, nonmaxSuppression);
+    
+    // other feature detectors    
+    // static cv::Ptr<cv::Feature2D> f2d = cv::xfeatures2d::StarDetector::create();
+    // f2d->detect(image, keypoints);
+
     cv::KeyPoint::convert(keypoints, points, std::vector<int>());
     response_strength.reserve(points.size());
     for (const auto keypoint : keypoints) response_strength.push_back(keypoint.response); 
@@ -275,7 +281,22 @@ void circularMatching_gpu(cv::Mat img_l_0, cv::Mat img_r_0, cv::Mat img_l_1, cv:
 }
 #endif
 
-void displayPoints(cv::Mat& image, std::vector<cv::Point2f>&  points)
+
+void displayTwoImages(const cv::Mat& image_1, const cv::Mat& image_2)
+{
+    cv::Size sz1 = image_1.size();
+    cv::Size sz2 = image_2.size();
+    cv::Mat image_3(sz1.height, sz1.width+sz2.width, CV_8UC1);
+    cv::Mat left(image_3, cv::Rect(0, 0, sz1.width, sz1.height));
+    image_1.copyTo(left);
+    cv::Mat right(image_3, cv::Rect(sz1.width, 0, sz2.width, sz2.height));
+    image_2.copyTo(right);
+    cv::imshow("im3", image_3);
+    cv::waitKey(1);
+
+}
+
+void displayPoints(const cv::Mat& image, const std::vector<cv::Point2f>&  points)
 {
     int radius = 2;
     cv::Mat vis;
@@ -291,9 +312,9 @@ void displayPoints(cv::Mat& image, std::vector<cv::Point2f>&  points)
     cv::waitKey(1);
 }
 
-void displayTracking(cv::Mat& imageLeft_t1, 
-                     std::vector<cv::Point2f>&  pointsLeft_t0,
-                     std::vector<cv::Point2f>&  pointsLeft_t1)
+void displayTracking(const cv::Mat& imageLeft_t1, 
+                     const std::vector<cv::Point2f>&  pointsLeft_t0,
+                     const std::vector<cv::Point2f>&  pointsLeft_t1)
 {
     // -----------------------------------------
     // Display feature racking

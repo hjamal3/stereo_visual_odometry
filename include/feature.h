@@ -5,6 +5,7 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/features2d/features2d.hpp"
+#include "opencv2/xfeatures2d.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 
 #if USE_CUDA
@@ -75,10 +76,12 @@ void appendNewFeatures(cv::Mat& image, FeatureSet& current_features);
 
 void appendNewFeatures(std::vector<cv::Point2f> points_new, FeatureSet& current_features);
 
-void displayTracking(cv::Mat& imageLeft_t1, 
-                     std::vector<cv::Point2f>&  pointsLeft_t0,
-                     std::vector<cv::Point2f>&  pointsLeft_t1);
+void displayTracking(const cv::Mat& imageLeft_t1, 
+                     const std::vector<cv::Point2f>&  pointsLeft_t0,
+                     const std::vector<cv::Point2f>&  pointsLeft_t1);
 
-void displayPoints(cv::Mat& image, std::vector<cv::Point2f>&  points); 
+void displayPoints(const cv::Mat& image, const std::vector<cv::Point2f>&  points); 
+
+void displayTwoImages(const cv::Mat& image1, const cv::Mat& image2);
 
 #endif

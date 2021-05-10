@@ -11,6 +11,9 @@ int Bucket::size(){
 
 void Bucket::add_feature(const cv::Point2f point, const int age, const float strength){
 
+    // bucket set to size 0
+    if (!max_size) return;
+
     // won't add feature with age > 10;
     const int age_threshold = 10;
     if (age < age_threshold)

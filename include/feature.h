@@ -40,6 +40,15 @@ struct FeatureSet {
     }
  };
 
+// how many of the top rows of buckets to ignore of the image
+const int BUCKET_START_ROW = 2; 
+
+// number of buckets to divide image to. # buckets = BUCKET_DIVISOR*BUCKET_DIVISOR 
+const int BUCKET_DIVISOR = 10;
+
+// maximum number of features inside a bucket 
+const int FEATURES_PER_BUCKET = 2; // TODO PARAM
+
 
 void deleteUnmatchFeatures(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1, std::vector<uchar>& status);
 
@@ -70,9 +79,9 @@ void circularMatching(cv::Mat img_l_0, cv::Mat img_r_0, cv::Mat img_l_1, cv::Mat
                         FeatureSet& current_features);
 #endif
 
-void bucketingFeatures(cv::Mat& image, FeatureSet& current_features, int bucket_size, int features_per_bucket);
+void bucketingFeatures(const cv::Mat& image, FeatureSet& current_features, int bucket_size, int features_per_bucket);
 
-void appendNewFeatures(cv::Mat& image, FeatureSet& current_features);
+void appendNewFeatures(const cv::Mat& image, FeatureSet& current_features);
 
 void appendNewFeatures(std::vector<cv::Point2f> points_new, FeatureSet& current_features);
 

@@ -125,7 +125,7 @@ void StereoVO::run()
         cv::Rodrigues(rotation, rotation_rodrigues);  
         double angle = cv::norm(rotation_rodrigues, cv::NORM_L2);
 
-        if (scale_translation < 0.001 || scale_translation > 2 || abs(angle) > 0.5)
+        if (scale_translation < 0.001 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
         {
             std::cout << "VO rejected. Translation too small or too big or rotation too big" << std::endl;
             use_vo = false;

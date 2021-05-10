@@ -42,7 +42,7 @@ void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points, std::
     //uses FAST as for feature dection, modify parameters as necessary
 
     std::vector<cv::KeyPoint> keypoints;
-    int fast_threshold = 20;
+    int fast_threshold = 40;
     bool nonmaxSuppression = true;
     cv::FAST(image, keypoints, fast_threshold, nonmaxSuppression);
     
@@ -56,7 +56,7 @@ void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points, std::
 }
 
 /* Add more features to feature set using image */
-void appendNewFeatures(cv::Mat& image, FeatureSet& current_features)
+void appendNewFeatures(const cv::Mat& image, FeatureSet& current_features)
 {
     /* Fast feature detection */
     std::vector<cv::Point2f>  points_new;
@@ -72,12 +72,11 @@ void appendNewFeatures(cv::Mat& image, FeatureSet& current_features)
     // displayPoints(image,current_features.points);
 
     /* Bucketing features */
-    const int bucket_size = std::min(image.rows,image.cols)/7; // TODO PARAM
-    const int features_per_bucket = 2; // TODO PARAM
+    const int bucket_size = std::min(image.rows,image.cols)/BUCKET_DIVISOR; // TODO PARAM
     std::cout << "number of features before bucketing: " << current_features.points.size() << std::endl;
 
     // filter features in currentVOFeatures so that one per bucket
-    bucketingFeatures(image, current_features, bucket_size, features_per_bucket);
+    bucketingFeatures(image, current_features, bucket_size, FEATURES_PER_BUCKET);
     std::cout << "number of features after bucketing: " << current_features.points.size() << std::endl;
 
     /* Display feature points after bucketing */
@@ -85,7 +84,7 @@ void appendNewFeatures(cv::Mat& image, FeatureSet& current_features)
 
 }
 
-void bucketingFeatures(cv::Mat& image, FeatureSet& current_features, int bucket_size, int features_per_bucket)
+void bucketingFeatures(const cv::Mat& image, FeatureSet& current_features, int bucket_size, int features_per_bucket)
 {
     // This function buckets features
     // image: only use for getting dimension of the image
@@ -102,10 +101,12 @@ void bucketingFeatures(cv::Mat& image, FeatureSet& current_features, int bucket_
     // initialize all the buckets
     for (int buckets_idx_height = 0; buckets_idx_height <= buckets_nums_height; buckets_idx_height++)
     {
-      for (int buckets_idx_width = 0; buckets_idx_width <= buckets_nums_width; buckets_idx_width++)
-      {
-        Buckets.push_back(Bucket(features_per_bucket));
-      }
+        for (int buckets_idx_width = 0; buckets_idx_width <= buckets_nums_width; buckets_idx_width++)
+        {
+            // Ignore top rows of image.
+            if (buckets_idx_height > BUCKET_START_ROW) Buckets.push_back(Bucket(features_per_bucket));
+            else Buckets.push_back(Bucket(0));
+        }
     }
 
     /* Bucket all current features into buckets by their location */

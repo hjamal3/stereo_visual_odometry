@@ -25,6 +25,8 @@
 #include <fstream>
 #include <string>
 
+#include <utils.h>
+
 struct FeatureSet {
     std::vector<cv::Point2f>  points;
     std::vector<int>  ages;
@@ -44,10 +46,10 @@ struct FeatureSet {
 const int BUCKET_START_ROW = 2; 
 
 // number of buckets to divide image to. # buckets = BUCKET_DIVISOR*BUCKET_DIVISOR 
-const int BUCKET_DIVISOR = 10;
+const int BUCKET_DIVISOR = 15;
 
 // maximum number of features inside a bucket 
-const int FEATURES_PER_BUCKET = 2; // TODO PARAM
+const int FEATURES_PER_BUCKET = 4; // TODO PARAM
 
 // fast feature corner threshold
 const int FAST_THRESHOLD = 20;

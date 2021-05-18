@@ -1,46 +1,6 @@
 #include "vo.h"
 using namespace cv;
 
-cv::Mat euler2rot(cv::Mat& rotationMatrix, const cv::Mat & euler)
-{
-
-    double x = euler.at<double>(0);
-    double y = euler.at<double>(1);
-    double z = euler.at<double>(2);
-
-    // Assuming the angles are in radians.
-    double ch = cos(z);
-    double sh = sin(z);
-    double ca = cos(y);
-    double sa = sin(y);
-    double cb = cos(x);
-    double sb = sin(x);
-
-    double m00, m01, m02, m10, m11, m12, m20, m21, m22;
-
-    m00 = ch * ca;
-    m01 = sh*sb - ch*sa*cb;
-    m02 = ch*sa*sb + sh*cb;
-    m10 = sa;
-    m11 = ca*cb;
-    m12 = -ca*sb;
-    m20 = -sh*ca;
-    m21 = sh*sa*cb + ch*sb;
-    m22 = -sh*sa*sb + ch*cb;
-
-    rotationMatrix.at<double>(0,0) = m00;
-    rotationMatrix.at<double>(0,1) = m01;
-    rotationMatrix.at<double>(0,2) = m02;
-    rotationMatrix.at<double>(1,0) = m10;
-    rotationMatrix.at<double>(1,1) = m11;
-    rotationMatrix.at<double>(1,2) = m12;
-    rotationMatrix.at<double>(2,0) = m20;
-    rotationMatrix.at<double>(2,1) = m21;
-    rotationMatrix.at<double>(2,2) = m22;
-
-    return rotationMatrix;
-}
-
 /* Removes any feature points that did not circle back to their original location, with threshold.*/
 void checkValidMatch(std::vector<cv::Point2f>& points, std::vector<cv::Point2f>& points_return, std::vector<bool>& status, int threshold)
 {
@@ -97,7 +57,7 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     {
         // append new features with old features
         appendNewFeatures(imageLeft_t0, currentVOFeatures);   
-        std::cout << "Current feature set size: " << currentVOFeatures.points.size() << std::endl;
+        debug("[vo]: current feature set size: " + std::to_string(currentVOFeatures.points.size()));
     }
     // left image points are the tracked features
     pointsLeft_t0 = currentVOFeatures.points;
@@ -130,7 +90,7 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     // update current tracked points
     currentVOFeatures.points = pointsLeft_t1;
 
-    std::cout << "number of features after circular matching: " << currentVOFeatures.points.size() << std::endl;
+    debug("[vo]: number of features after circular matching: " + std::to_string(currentVOFeatures.points.size()));
 
     // feature detector points after circular matching
     //displayPoints(imageLeft_t0,currentVOFeatures.points);
@@ -172,6 +132,6 @@ int trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
     #endif
 
     cv::Rodrigues(rvec, rotation);
-    std::cout << "[trackingFrame2Frame] inliers size: " << inliers.size()  << " out of " << pointsLeft_t1.size() << std::endl;
+    debug("[vo]: inliers size after PnP: " + std::to_string(inliers.size().height) + " out of " + std::to_string(pointsLeft_t1.size()));
     return inliers.size().height;
 }

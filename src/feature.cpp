@@ -72,11 +72,11 @@ void appendNewFeatures(const cv::Mat& image, FeatureSet& current_features)
 
     /* Bucketing features */
     const int bucket_size = std::min(image.rows,image.cols)/BUCKET_DIVISOR; // TODO PARAM
-    std::cout << "number of features before bucketing: " << current_features.points.size() << std::endl;
+    debug("[feature]: number of features before bucketing: " + std::to_string(current_features.points.size()));
 
     // filter features in currentVOFeatures so that one per bucket
     bucketingFeatures(image, current_features, bucket_size, FEATURES_PER_BUCKET);
-    std::cout << "number of features after bucketing: " << current_features.points.size() << std::endl;
+    debug("[feature]: number of features after bucketing: " + std::to_string(current_features.points.size()));
 
     /* Display feature points after bucketing */
     // displayPoints(image,current_features.points);

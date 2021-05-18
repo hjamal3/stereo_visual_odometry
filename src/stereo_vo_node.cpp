@@ -57,7 +57,7 @@ cv::Mat StereoVO::rosImage2CvMat(const sensor_msgs::ImageConstPtr img) {
     try {
             cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
     } catch (cv_bridge::Exception &e) {
-            std::cout << "exception" << std::endl;
+            std::cerr << "exception" << std::endl;
             return cv::Mat();
     }
     return cv_ptr->image;
@@ -84,7 +84,7 @@ void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, con
 
 void StereoVO::run()
 {
-    std::cout << std::endl << "frame id " << frame_id << std::endl;
+    debug("[node]: frame id " + std::to_string(frame_id));
     std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
     matchingFeatures( imageLeft_t0, imageRight_t0, imageLeft_t1, imageRight_t1,  currentVOFeatures,
                       pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1);  
@@ -103,7 +103,7 @@ void StereoVO::run()
     bool use_vo = true;
     if (currentVOFeatures.size() < features_threshold)
     {
-        std::cout << "not enough features detected for vo: " << currentVOFeatures.size()  << " < " << features_threshold << std::endl;
+        debug("[node]: not enough features detected for vo: " + std::to_string(currentVOFeatures.size())  + " < " + std::to_string(features_threshold));
 		use_vo = false;        
     } else 
     {
@@ -118,7 +118,7 @@ void StereoVO::run()
         // PnP may not converge
         if (inliers < features_threshold)
         {
-            std::cout << "Not enough inliers from PnP: " << inliers << " < " << features_threshold << std::endl;
+            debug("[node]: Not enough inliers from PnP: " + std::to_string(inliers) + " < " + std::to_string(features_threshold));
             use_vo = false;
         }
         else 
@@ -137,27 +137,33 @@ void StereoVO::run()
             // Translation might be too big or too small, as well as rotation
             if (scale_translation < 0.001 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
             {
-                std::cout << "VO rejected. Translation too small or too big or rotation too big" << std::endl;
+                debug("[node]: VO rejected. Translation too small or too big or rotation too big");
                 use_vo = false;
             }
         }
     }
 
-    if (use_vo)
+    if (false)
     {
-    	std::cout << "Using VO update" << std::endl;
+    	debug("[node]: Using VO update");
     	// rotate vo translation to rover frame
     	Eigen::Matrix<double,3,1> vo_trans_rover_frame = q_bc._transformVector(vo_translation);
     	// rotate vo translation in rover frame to global frame
-    	Eigen::Matrix<double,3,1> vo_trans_global_frame = current_rot._transformVector(vo_trans_rover_frame);
+        Eigen::Quaternion<double> rot_ib = vo_rot.slerp(0.5, current_rot);
+    	Eigen::Matrix<double,3,1> vo_trans_global_frame = rot_ib._transformVector(vo_trans_rover_frame);
     	// add to global position
     	global_pos += vo_trans_global_frame;
     } else 
     {
-    	std::cout << "Using encoder update" << std::endl;
+    	debug("[node]: Using encoder update");
     	// add to global position
     	global_pos += encoders_translation;
     }
+
+    static auto time_init = std::chrono::steady_clock::now();
+    double time_now = (double)(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()- time_init).count())/1000;
+    output_file << time_now << ", " << global_pos[0] << ", " << global_pos[1] << ", " << global_pos[2] << "\n";
+    std::cout << time_now << std::endl;
 
     // update rotation for vo.
     vo_rot = current_rot; // later on do slerp between current and previous 
@@ -222,8 +228,13 @@ int main(int argc, char **argv)
     // orienation from orientation ekf
     ros::Subscriber sub_quat = n.subscribe("quat", 0, &StereoVO::quat_callback, &stereo_vo);
 
-    std::cout << "Stereo VO Node Initialized!" << std::endl;
+    debug("[node]: Stereo VO Node Initialized!");
     
+    stereo_vo.output_file.open("/home/hjamal/Desktop/output.txt");
+
     ros::spin();
+
+    stereo_vo.output_file.close();
+
     return 0;
 }

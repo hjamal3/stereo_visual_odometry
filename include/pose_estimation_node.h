@@ -17,7 +17,6 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry> 
 
-
 #include <iostream>
 #include <ctype.h>
 #include <algorithm>
@@ -43,11 +42,11 @@ Eigen::Quaternion<double> current_rot;
 // camera to imu frame, wxyz
 
 // Note: eigen is w x y z and tf is x y z w
-class StereoVO
+class PoseEstimator
 {
 	public:
 
-		StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_);
+		PoseEstimator(cv::Mat projMatrl_, cv::Mat projMatrr_);
 
 		cv::Mat rosImage2CvMat(const sensor_msgs::ImageConstPtr img);
 
@@ -66,7 +65,12 @@ class StereoVO
 		// runs the pipeline
 		void run();
 
+		// logging 
+		bool logging_path;
 		std::ofstream output_file;
+
+		// mode of operation
+		bool use_vo;
 
 	private:
 

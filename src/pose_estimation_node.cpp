@@ -1,8 +1,8 @@
-#include "stereo_vo_node.h"
+#include "pose_estimation_node.h"
 #include <stdexcept>
 
 // quat from ekf node
-void StereoVO::quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
+void PoseEstimator::quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
 {
 	current_rot.w() = msg->w;
 	current_rot.x() = msg->x;
@@ -16,7 +16,7 @@ void StereoVO::quat_callback(const::geometry_msgs::Quaternion::ConstPtr& msg)
 }
 
 // encoders callback
-void StereoVO::encoders_callback(const std_msgs::Int32MultiArray::ConstPtr& msg)
+void PoseEstimator::encoders_callback(const std_msgs::Int32MultiArray::ConstPtr& msg)
 {    
 	int ticks_l_curr = (msg->data[0]+msg->data[2])/2.0; // total ticks left wheel
 	int ticks_r_curr = (msg->data[1]+msg->data[3])/2.0; // total ticks right wheel
@@ -43,16 +43,32 @@ void StereoVO::encoders_callback(const std_msgs::Int32MultiArray::ConstPtr& msg)
 
 	// update encoders prediction
 	encoders_translation += current_rot._transformVector(dpos);
+
+    // using encoder update only
+    if (!use_vo)
+    {
+        global_pos += encoders_translation;
+        encoders_translation << 0,0,0;
+
+        debug("[node]: Using encoder update");
+        // publish transforms
+        static tf::TransformBroadcaster br;
+        tf::Transform transform;
+        transform.setOrigin(tf::Vector3(global_pos[0],global_pos[1],global_pos[2]));
+        tf::Quaternion q (current_rot.x(), current_rot.y(), current_rot.z(), current_rot.w());
+        transform.setRotation(q);
+        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "yolo"));
+    }
 }
 
 
-StereoVO::StereoVO(cv::Mat projMatrl_, cv::Mat projMatrr_)
+PoseEstimator::PoseEstimator(cv::Mat projMatrl_, cv::Mat projMatrr_)
 {
     projMatrl = projMatrl_;
     projMatrr = projMatrr_;
 }
 
-cv::Mat StereoVO::rosImage2CvMat(const sensor_msgs::ImageConstPtr img) {
+cv::Mat PoseEstimator::rosImage2CvMat(const sensor_msgs::ImageConstPtr img) {
     cv_bridge::CvImagePtr cv_ptr;
     try {
             cv_ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
@@ -63,7 +79,7 @@ cv::Mat StereoVO::rosImage2CvMat(const sensor_msgs::ImageConstPtr img) {
     return cv_ptr->image;
 }
 
-void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right)
+void PoseEstimator::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, const sensor_msgs::ImageConstPtr& image_right)
 {
     if (!frame_id)
     {
@@ -82,7 +98,7 @@ void StereoVO::stereo_callback(const sensor_msgs::ImageConstPtr& image_left, con
     else run();
 }
 
-void StereoVO::run()
+void PoseEstimator::run()
 {
     debug("[node]: frame id " + std::to_string(frame_id));
     std::vector<cv::Point2f> pointsLeft_t0, pointsRight_t0, pointsLeft_t1, pointsRight_t1;  
@@ -100,11 +116,11 @@ void StereoVO::run()
     displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
 
     // if not enough features don't use vo
-    bool use_vo = true;
+    bool vo_usable = true;
     if (currentVOFeatures.size() < features_threshold)
     {
         debug("[node]: not enough features detected for vo: " + std::to_string(currentVOFeatures.size())  + " < " + std::to_string(features_threshold));
-		use_vo = false;        
+		vo_usable = false;        
     } else 
     {
 	    // Triangulate 3D Points
@@ -119,7 +135,7 @@ void StereoVO::run()
         if (inliers < features_threshold)
         {
             debug("[node]: Not enough inliers from PnP: " + std::to_string(inliers) + " < " + std::to_string(features_threshold));
-            use_vo = false;
+            vo_usable = false;
         }
         else 
         {
@@ -138,12 +154,12 @@ void StereoVO::run()
             if (scale_translation < 0.001 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
             {
                 debug("[node]: VO rejected. Translation too small or too big or rotation too big");
-                use_vo = false;
+                vo_usable = false;
             }
         }
     }
 
-    if (use_vo)
+    if (vo_usable)
     {
     	debug("[node]: Using VO update");
     	// rotate vo translation to rover frame
@@ -160,10 +176,13 @@ void StereoVO::run()
     	global_pos += encoders_translation;
     }
 
-    static auto time_init = std::chrono::steady_clock::now();
-    double time_now = (double)(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()- time_init).count())/1000;
-    output_file << time_now << ", " << global_pos[0] << ", " << global_pos[1] << ", " << global_pos[2] << "\n";
-    std::cout << "t: " << time_now << " s" << std::endl;
+    if (logging_path)
+    {
+        static auto time_init = std::chrono::steady_clock::now();
+        double time_now = (double)(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()- time_init).count())/1000;
+        output_file << time_now << ", " << global_pos[0] << ", " << global_pos[1] << ", " << global_pos[2] << "\n";
+        debug("t: " + std::to_string(time_now) + " s\n");
+    }
 
     // update rotation for vo.
     vo_rot = current_rot; // later on do slerp between current and previous 
@@ -209,8 +228,14 @@ int main(int argc, char **argv)
     cv::Mat projMatrl = (cv::Mat_<float>(3, 4) << fx, 0., cx, 0., 0., fy, cy, 0., 0,  0., 1., 0.);
     cv::Mat projMatrr = (cv::Mat_<float>(3, 4) << fx, 0., cx, bf, 0., fy, cy, 0., 0,  0., 1., 0.);
 
-    // initialize VO object
-    StereoVO stereo_vo(projMatrl,projMatrr);
+    // initialize pose estimator object
+    PoseEstimator pose_estimator(projMatrl, projMatrr);
+
+    // mode of operation
+    n.param<bool>("use_vo", pose_estimator.use_vo, true); // accel white noise
+
+    // log path
+    n.param<bool>("logging_path", pose_estimator.logging_path, false); // accel white noise
 
     // using message_filters to get stereo callback on one topic
     message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect", 1);
@@ -220,21 +245,26 @@ int main(int argc, char **argv)
 
     // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
     message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(1), image1_sub, image2_sub);
-    sync.registerCallback(boost::bind(&StereoVO::stereo_callback, &stereo_vo, _1, _2));
+
+    // use images only if vo is being used
+    if (pose_estimator.use_vo)
+    {
+        sync.registerCallback(boost::bind(&PoseEstimator::stereo_callback, &pose_estimator, _1, _2));
+    }
 
     // wheel encoders
-	ros::Subscriber sub_encoders = n.subscribe("wheels", 0, &StereoVO::encoders_callback, &stereo_vo);
+	ros::Subscriber sub_encoders = n.subscribe("wheels", 0, &PoseEstimator::encoders_callback, &pose_estimator);
 
     // orienation from orientation ekf
-    ros::Subscriber sub_quat = n.subscribe("quat", 0, &StereoVO::quat_callback, &stereo_vo);
+    ros::Subscriber sub_quat = n.subscribe("quat", 0, &PoseEstimator::quat_callback, &pose_estimator);
 
-    debug("[node]: Stereo VO Node Initialized!");
-    
-    stereo_vo.output_file.open("/home/hjamal/Desktop/output.txt");
+    debug("Pose Estimator Initialized!");
+
+    if (pose_estimator.logging_path) pose_estimator.output_file.open("/home/hjamal/Desktop/output.txt");
 
     ros::spin();
 
-    stereo_vo.output_file.close();
+    if (pose_estimator.logging_path) pose_estimator.output_file.close();
 
     return 0;
 }

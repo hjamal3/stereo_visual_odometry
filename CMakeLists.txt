@@ -153,22 +153,13 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/stereo_visual_odometry_node.cpp)
-add_executable(stereo_vo_node src/stereo_vo_node.cpp)
-add_dependencies(stereo_vo_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(stereo_vo_node
+add_executable(pose_estimation_node src/pose_estimation_node.cpp)
+add_dependencies(pose_estimation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(pose_estimation_node
    ${catkin_LIBRARIES}
    ${OpenCV_LIBRARIES}
    Utils bucket feature vo
 )
-
-add_executable(repub_node src/repub.cpp)
-add_dependencies(repub_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(repub_node
-   ${catkin_LIBRARIES}
-   ${OpenCV_LIBRARIES}
-)
-
-
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

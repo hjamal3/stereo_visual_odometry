@@ -79,7 +79,7 @@ class StereoVO
 		cv::Mat imageRight_t0,  imageLeft_t0;
 		cv::Mat imageRight_t1,  imageLeft_t1;
 
-		// number of features sufficent for VO
+		// number of features sufficient for VO
 		const int features_threshold = 60;
 
 		// set of features currently tracked

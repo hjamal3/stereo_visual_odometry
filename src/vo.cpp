@@ -19,20 +19,30 @@ void checkValidMatch(std::vector<cv::Point2f>& points, std::vector<cv::Point2f>&
     }
 }
 
-void removeInvalidPoints(std::vector<cv::Point2f>& points, const std::vector<bool>& status)
+/* Remove points that didn't return close enough to original position */
+void removeInvalidPoints(std::vector<cv::Point2f>& pointsLeft_t0, std::vector<cv::Point2f>& pointsLeft_t1, 
+    std::vector<cv::Point2f>& pointsRight_t0, FeatureSet& current_features, const std::vector<bool>& status)
 {
     int index = 0;
     for (int i = 0; i < status.size(); i++)
     {
         if (status[i] == false)
         {
-            points.erase(points.begin() + index);
+            pointsLeft_t0.erase(pointsLeft_t0.begin() + index);
+            pointsLeft_t1.erase(pointsLeft_t1.begin() + index);
+            pointsRight_t0.erase(pointsRight_t0.begin() + index);
+            current_features.points.erase(current_features.points.begin() + index);
+            current_features.strengths.erase(current_features.strengths.begin() + index);
+            current_features.ages.erase(current_features.ages.begin() + index);
         }
         else
         {
             index ++;
         }
     }
+
+    // update current tracked points
+    current_features.points = pointsLeft_t1;
 }
 
 void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
@@ -46,14 +56,11 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     // ----------------------------
     // Feature detection using FAST and bucketing
     // ----------------------------
-    currentVOFeatures.points.clear();
-    currentVOFeatures.ages.clear();
-    currentVOFeatures.strengths.clear();
 
-    std::vector<cv::Point2f>  pointsLeftReturn_t0;   // feature points to check cicular mathcing validation
+    std::vector<cv::Point2f>  pointsLeftReturn_t0;   // feature points to check cicular matching validation
 
     // add new features if current number of features is below a threshold. TODO PARAM
-    if (currentVOFeatures.size() < 2000)
+    if (currentVOFeatures.size() < 4000)
     {
         // append new features with old features
         appendNewFeatures(imageLeft_t0, currentVOFeatures);   
@@ -82,13 +89,7 @@ void matchingFeatures(cv::Mat& imageLeft_t0, cv::Mat& imageRight_t0,
     // check if circled back points are in range of original points
     std::vector<bool> status;
     checkValidMatch(pointsLeft_t0, pointsLeftReturn_t0, status, 1);
-    removeInvalidPoints(pointsLeft_t0, status); // can combine into one function
-    removeInvalidPoints(pointsLeft_t1, status);
-    removeInvalidPoints(pointsRight_t0, status);
-    removeInvalidPoints(pointsRight_t1, status);
-
-    // update current tracked points
-    currentVOFeatures.points = pointsLeft_t1;
+    removeInvalidPoints(pointsLeft_t0, pointsLeft_t1, pointsRight_t0, currentVOFeatures, status); // can combine into one function
 
     debug("[vo]: number of features after circular matching: " + std::to_string(currentVOFeatures.points.size()));
 
@@ -106,9 +107,9 @@ int trackingFrame2Frame(cv::Mat& projMatrl, cv::Mat& projMatrr,
 {
 
     // Calculate frame to frame transformation
-    cv::Mat distCoeffs = cv::Mat::zeros(4, 1, CV_64FC1);   
+    static cv::Mat distCoeffs = cv::Mat::zeros(4, 1, CV_64FC1); // rectified undistorted images
     cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64FC1);
-    cv::Mat intrinsic_matrix = (cv::Mat_<float>(3, 3) << projMatrl.at<float>(0, 0), projMatrl.at<float>(0, 1), projMatrl.at<float>(0, 2),
+    static cv::Mat intrinsic_matrix = (cv::Mat_<float>(3, 3) << projMatrl.at<float>(0, 0), projMatrl.at<float>(0, 1), projMatrl.at<float>(0, 2),
                                                 projMatrl.at<float>(1, 0), projMatrl.at<float>(1, 1), projMatrl.at<float>(1, 2),
                                                 projMatrl.at<float>(1, 1), projMatrl.at<float>(1, 2), projMatrl.at<float>(1, 3));
 

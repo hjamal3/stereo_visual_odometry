@@ -54,7 +54,8 @@ const int FEATURES_PER_BUCKET = 4; // TODO PARAM
 // fast feature corner threshold
 const int FAST_THRESHOLD = 20;
 
-void deleteUnmatchFeatures(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1, std::vector<uchar>& status);
+// feature age threshold
+const int AGE_THRESHOLD = 10;
 
 void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points, std::vector<float>& response_strengths);
 
@@ -67,7 +68,7 @@ void deleteUnmatchFeaturesCircle(std::vector<cv::Point2f>& points0, std::vector<
                           std::vector<cv::Point2f>& points0_return,
                           std::vector<uchar>& status0, std::vector<uchar>& status1,
                           std::vector<uchar>& status2, std::vector<uchar>& status3,
-                          std::vector<int>& ages);
+                          FeatureSet & current_features);
 
 void circularMatching(cv::Mat img_l_0, cv::Mat img_r_0, cv::Mat img_l_1, cv::Mat img_r_1,
                       std::vector<cv::Point2f>& points_l_0, std::vector<cv::Point2f>& points_r_0,

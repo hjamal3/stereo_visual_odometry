@@ -143,7 +143,7 @@ void StereoVO::run()
         }
     }
 
-    if (false)
+    if (use_vo)
     {
     	debug("[node]: Using VO update");
     	// rotate vo translation to rover frame
@@ -163,7 +163,7 @@ void StereoVO::run()
     static auto time_init = std::chrono::steady_clock::now();
     double time_now = (double)(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()- time_init).count())/1000;
     output_file << time_now << ", " << global_pos[0] << ", " << global_pos[1] << ", " << global_pos[2] << "\n";
-    std::cout << time_now << std::endl;
+    std::cout << "t: " << time_now << " s" << std::endl;
 
     // update rotation for vo.
     vo_rot = current_rot; // later on do slerp between current and previous 

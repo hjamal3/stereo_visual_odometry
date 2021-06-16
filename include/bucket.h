@@ -30,6 +30,7 @@ public:
 
     void add_feature(const cv::Point2f, const int, const float);
     void get_features(FeatureSet&);
+    int compute_score(const int age, const int strength);
 
     int size();
     

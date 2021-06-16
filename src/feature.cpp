@@ -17,25 +17,6 @@ static void download(const cv::cuda::GpuMat& d_mat, std::vector<uchar>& vec)
 }
 #endif
 
-void deleteUnmatchFeatures(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1, std::vector<uchar>& status)
-{
-    //getting rid of points for which the KLT tracking failed or those who have gone outside the frame
-    int indexCorrection = 0;
-    for( int i=0; i<status.size(); i++)
-    {  
-        cv::Point2f pt = points1.at(i- indexCorrection);
-        if ((status.at(i) == 0)||(pt.x<0)||(pt.y<0))   
-        {
-            if((pt.x<0)||(pt.y<0))    
-            {
-                status.at(i) = 0;
-            }
-            points0.erase (points0.begin() + (i - indexCorrection));
-            points1.erase (points1.begin() + (i - indexCorrection));
-            indexCorrection++;
-        }
-    }
-}
 
 void featureDetectionFast(cv::Mat image, std::vector<cv::Point2f>& points, std::vector<float> & response_strength)  
 {   
@@ -108,7 +89,7 @@ void bucketingFeatures(const cv::Mat& image, FeatureSet& current_features, int b
         }
     }
 
-    /* Bucket all current features into buckets by their location */
+    /* Put all current features into buckets by their location and scores */
     int buckets_nums_height_idx, buckets_nums_width_idx, buckets_idx;
     for (int i = 0; i < current_features.points.size(); ++i)
     {
@@ -133,17 +114,19 @@ void bucketingFeatures(const cv::Mat& image, FeatureSet& current_features, int b
     }
 }
 
+/* Delete any points that optical flow failed for. */
 void deleteUnmatchFeaturesCircle(std::vector<cv::Point2f>& points0, std::vector<cv::Point2f>& points1,
                           std::vector<cv::Point2f>& points2, std::vector<cv::Point2f>& points3,
                           std::vector<cv::Point2f>& points0_return,
                           std::vector<uchar>& status0, std::vector<uchar>& status1,
                           std::vector<uchar>& status2, std::vector<uchar>& status3,
-                          std::vector<int>& ages){
+                          FeatureSet & current_features)
+    {
 
     //getting rid of points for which the KLT tracking failed or those who have gone outside the frame
-    for (int i = 0; i < ages.size(); ++i)
+    for (int i = 0; i < current_features.ages.size(); ++i)
     {
-        ages[i] += 1;
+        current_features.ages[i] += 1;
     }
 
     int indexCorrection = 0;
@@ -171,7 +154,10 @@ void deleteUnmatchFeaturesCircle(std::vector<cv::Point2f>& points0, std::vector<
             points3.erase (points3.begin() + (i - indexCorrection));
             points0_return.erase (points0_return.begin() + (i - indexCorrection));
 
-            ages.erase (ages.begin() + (i - indexCorrection));
+            // also update the feature set 
+            current_features.ages.erase (current_features.ages.begin() + (i - indexCorrection));
+            current_features.strengths.erase (current_features.strengths.begin() + (i - indexCorrection));
+
             indexCorrection++;
         }
 
@@ -221,7 +207,7 @@ void circularMatching(cv::Mat img_l_0, cv::Mat img_r_0, cv::Mat img_l_1, cv::Mat
     //std::cerr << "calcOpticalFlowPyrLK time: " << float(toc - tic)/CLOCKS_PER_SEC*1000 << "ms" << std::endl;
 
     deleteUnmatchFeaturesCircle(points_l_0, points_r_0, points_r_1, points_l_1, points_l_0_return,
-                        status0, status1, status2, status3, current_features.ages);
+                        status0, status1, status2, status3, current_features);
 
 }
 

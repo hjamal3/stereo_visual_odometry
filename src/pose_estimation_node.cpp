@@ -50,6 +50,9 @@ void PoseEstimator::encoders_callback(const std_msgs::Int32MultiArray::ConstPtr&
         global_pos += encoders_translation;
         encoders_translation << 0,0,0;
 
+        // publish odom
+
+
         debug("[node]: Using encoder update");
         // publish transforms
         static tf::TransformBroadcaster br;
@@ -61,12 +64,13 @@ void PoseEstimator::encoders_callback(const std_msgs::Int32MultiArray::ConstPtr&
     }
 }
 
-
+// constructor for node
 PoseEstimator::PoseEstimator(cv::Mat projMatrl_, cv::Mat projMatrr_)
 {
     projMatrl = projMatrl_;
     projMatrr = projMatrr_;
 }
+
 
 cv::Mat PoseEstimator::rosImage2CvMat(const sensor_msgs::ImageConstPtr img) {
     cv_bridge::CvImagePtr cv_ptr;
@@ -150,8 +154,14 @@ void PoseEstimator::run()
             cv::Rodrigues(rotation, rotation_rodrigues);  
             double angle = cv::norm(rotation_rodrigues, cv::NORM_L2);
 
+            // If the robot went only vertically ignore
+            // if (scale_translation > 0.2 && abs(abs(vo_translation(2)) - scale_translation) < 0.)
+            // {
+
+            // }
+
             // Translation might be too big or too small, as well as rotation
-            if (scale_translation < 0.001 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
+            if (scale_translation < 0.005 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
             {
                 debug("[node]: VO rejected. Translation too small or too big or rotation too big");
                 vo_usable = false;

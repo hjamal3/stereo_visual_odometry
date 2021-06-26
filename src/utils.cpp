@@ -59,45 +59,6 @@ void cv_rotm_to_eigen_quat(Eigen::Quaternion<double> & q, const cv::Mat & R)
 
 }
 
-
-void integrateOdometryStereo(int frame_i, cv::Mat& frame_pose, const cv::Mat& rotation, const cv::Mat& translation_stereo)
-{
-
-    // std::cout << "rotation" << rotation << std::endl;
-    std::cout << "translation_stereo" << translation_stereo << std::endl;
-
-    cv::Mat rigid_body_transformation;
-
-    cv::Mat addup = (cv::Mat_<double>(1, 4) << 0, 0, 0, 1);
-
-    cv::hconcat(rotation, translation_stereo, rigid_body_transformation);
-    cv::vconcat(rigid_body_transformation, addup, rigid_body_transformation);
-
-    // std::cout << "rigid_body_transformation" << rigid_body_transformation << std::endl;
-
-    double scale = sqrt((translation_stereo.at<double>(0))*(translation_stereo.at<double>(0)) 
-                        + (translation_stereo.at<double>(1))*(translation_stereo.at<double>(1))
-                        + (translation_stereo.at<double>(2))*(translation_stereo.at<double>(2))) ;
-
-    // frame_pose = frame_pose * rigid_body_transformation;
-    std::cout << "scale: " << scale << std::endl;
-
-    rigid_body_transformation = rigid_body_transformation.inv();
-    // if ((scale>0.1)&&(translation_stereo.at<double>(2) > translation_stereo.at<double>(0)) && (translation_stereo.at<double>(2) > translation_stereo.at<double>(1))) 
-    ///if (scale > 0.05 && scale < 10) 
-    if (scale > 0.001 && scale < 10) // WHY DO WE NEED THIS
-    {
-      // std::cout << "Rpose" << Rpose << std::endl;
-
-      frame_pose = frame_pose * rigid_body_transformation;
-
-    }
-    else 
-    {
-     std::cout << "[WARNING] scale below 0.1, or incorrect translation" << std::endl;
-    }
-}
-
 bool isRotationMatrix(cv::Mat &R)
 {
     cv::Mat Rt;

@@ -103,11 +103,9 @@ class PoseEstimator
 		bool orientation_init = false;
 		int ticks_l_prev = 0;
 		int ticks_r_prev = 0;
-		const double L = 0.5842;
 		const double R = 0.1016;
 		const double ticks_per_m = 1316/(M_PI*2*R);
-
-		// Camera body transformation
-		const Eigen::Quaternion<double> q_bc = {0.3995,-0.5834,0.5834,-0.3995};	
+		// Camera body transformation, wxyz
+		const Eigen::Quaternion<double> q_bc = {0.3903,-0.5896,0.5896,-0.3903};	
 
 };

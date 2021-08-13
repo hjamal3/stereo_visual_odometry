@@ -6,6 +6,6 @@
 <node pkg="imu_ekf_ros" type="init_imu_ekf_node" name="init_ekf"  output="screen"/> 
 <node pkg="imu_ekf_ros" type="imu_ekf_node" name="ekf" output="screen"/>
 
-<param name="use_vo" type="bool" value="false"/>
+<param name="use_vo" type="bool" value="true"/>
 <param name="logging_path" type="bool" value="false"/>
 </launch>

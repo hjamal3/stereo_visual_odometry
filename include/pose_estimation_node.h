@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "sensor_msgs/Image.h"
 #include "std_msgs/Int32MultiArray.h"
+#include "nav_msgs/Odometry.h"
 #include "geometry_msgs/Quaternion.h"
 #include <tf/transform_broadcaster.h>
 #include <message_filters/subscriber.h>
@@ -26,6 +27,7 @@
 #include <sstream>
 #include <fstream>
 #include <string>
+#include <chrono>
 
 #include "feature.h"
 #include "utils.h"
@@ -72,6 +74,9 @@ class PoseEstimator
 		// mode of operation
 		bool use_vo;
 
+		// ros node handle pointer
+		ros::Publisher * pub_ptr;			
+
 	private:
 
 		int frame_id = 0;
@@ -108,6 +113,6 @@ class PoseEstimator
 		const double ticks_per_m = 1316/(M_PI*2*R);
 
 		// Camera body transformation
-		const Eigen::Quaternion<double> q_bc = {0.3995,-0.5834,0.5834,-0.3995};	
+		const Eigen::Quaternion<double> q_bc = {0.3995,-0.5834,0.5834,-0.3995};
 
 };

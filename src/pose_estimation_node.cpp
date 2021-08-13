@@ -113,7 +113,7 @@ void PoseEstimator::run()
     imageRight_t0 = imageRight_t1;
 
     // visualize feature tracks
-    displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
+    //displayTracking(imageLeft_t1, pointsLeft_t0, pointsLeft_t1);
 
     // if not enough features don't use vo
     bool vo_usable = true;
@@ -151,7 +151,7 @@ void PoseEstimator::run()
             double angle = cv::norm(rotation_rodrigues, cv::NORM_L2);
 
             // Translation might be too big or too small, as well as rotation
-            if (scale_translation < 0.001 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
+            if (scale_translation < 0.01 || scale_translation > 0.1 || abs(angle) > 0.5 || abs(vo_translation(2)) > 0.04)
             {
                 debug("[node]: VO rejected. Translation too small or too big or rotation too big");
                 vo_usable = false;
@@ -183,6 +183,8 @@ void PoseEstimator::run()
         output_file << time_now << ", " << global_pos[0] << ", " << global_pos[1] << ", " << global_pos[2] << "\n";
         debug("t: " + std::to_string(time_now) + " s\n");
     }
+	
+	std::cout << global_pos[0] << ", " << global_pos[1] << ", " << global_pos[2] << std::endl;
 
     // update rotation for vo.
     vo_rot = current_rot; // later on do slerp between current and previous 
@@ -196,6 +198,18 @@ void PoseEstimator::run()
     tf::Quaternion q (current_rot.x(), current_rot.y(), current_rot.z(), current_rot.w());
     transform.setRotation(q);
     br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "map", "yolo"));
+
+	nav_msgs::Odometry odom;
+	odom.header.stamp = ros::Time::now();
+	odom.header.frame_id = "map";
+	odom.pose.pose.position.x = global_pos[0];
+	odom.pose.pose.position.y = global_pos[1];
+	odom.pose.pose.position.z = global_pos[2];
+	odom.pose.pose.orientation.x = current_rot.x();
+	odom.pose.pose.orientation.y = current_rot.y();
+	odom.pose.pose.orientation.z = current_rot.z();
+	odom.pose.pose.orientation.w = current_rot.w();
+	(*pub_ptr).publish(odom);
 }
 
 
@@ -238,8 +252,8 @@ int main(int argc, char **argv)
     n.param<bool>("logging_path", pose_estimator.logging_path, false); // accel white noise
 
     // using message_filters to get stereo callback on one topic
-    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect", 1);
-    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image1_sub(n, "/stereo/left/image_rect_color", 1);
+    message_filters::Subscriber<sensor_msgs::Image> image2_sub(n, "/stereo/right/image_rect_color", 1);
 
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> MySyncPolicy;
 
@@ -258,9 +272,12 @@ int main(int argc, char **argv)
     // orienation from orientation ekf
     ros::Subscriber sub_quat = n.subscribe("quat", 0, &PoseEstimator::quat_callback, &pose_estimator);
 
+	ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 1);
+	pose_estimator.pub_ptr = &odom_pub;
+
     debug("Pose Estimator Initialized!");
 
-    if (pose_estimator.logging_path) pose_estimator.output_file.open("/home/hjamal/Desktop/output.txt");
+    if (pose_estimator.logging_path) pose_estimator.output_file.open("/home/morphin/Desktop/output.txt");
 
     ros::spin();
 
